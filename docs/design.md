@@ -23,7 +23,7 @@ Not goals for now: macOS, auto-update of the launcher itself, accounts, a mod up
 | Text and IME | own text layout (epaint), IME through winit, CJK needs an extra font | cosmic-text, IME improving | good, IME through winit |
 | Images | egui_extras loaders (PNG, JPEG) | built in | built in |
 | Accessibility | AccessKit built in (screen readers on Windows and Linux) | none in the release | AccessKit |
-| Binary size (release, stripped) | about 8-12 MB with wgpu, 5-7 MB with glow | about 10-15 MB | about 6-10 MB |
+| Binary size (release, stripped) | 23 MB measured here (wgpu, AccessKit, file dialogs); less with glow | about 10-15 MB | about 6-10 MB |
 | Build time (clean) | fast, few heavy dependencies | slow (many crates) | slow (compiler for the `.slint` language) |
 | Maturity | widely used, monthly releases, stable API style | pre-1.0, API changes each release | 1.x, stable, but GPLv3 or a royalty-free licence with attribution terms |
 | Testing | `egui_kittest`, the UI runs headless in plain tests | little | `slint` testing backend |
@@ -70,7 +70,7 @@ data/
     mods/                  the profile's mods; mods/.disabled/ holds disabled ones (the game skips names with a dot)
     saves/ settings.json crash/ debug/  written by the game
     logs/latest.log        the last run's output; logs/<stamp>.log for older runs (the last 10 kept)
-  window.ron               eframe's window state
+  window/                  eframe's window state (size, position)
 config/
   launcher.json profiles.json installs.json
 cache/
