@@ -24,7 +24,7 @@ binaries for Linux and Windows as artifacts.
   File dialogs go through the XDG portal already (`rfd` uses it), so no home access is needed. Starting the game
   binary from inside the sandbox works only for builds inside the sandbox's data folder, so a downloaded build is fine
   and a checkout outside needs `--filesystem` for it.
-- **Nix**: a flake output next to the game's, wrapped with the same `LD_LIBRARY_PATH` as `tools/shell.nix`.
+- **Nix**: the flake, see [nix.md](nix.md).
 
 ## Releases of the launcher
 

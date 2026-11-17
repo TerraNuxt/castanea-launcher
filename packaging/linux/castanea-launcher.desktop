@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=castanea launcher
+GenericName=Game launcher
+Comment=Start castanea, keep its builds and manage its mods
+Exec=castanea-launcher
+Icon=castanea-launcher
+Terminal=false
+Categories=Game;
+StartupWMClass=castanea-launcher

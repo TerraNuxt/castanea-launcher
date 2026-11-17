@@ -28,7 +28,7 @@ view. Windows and Linux.
 - English and German (`crates/ui/lang/*.json`), dark theme, keyboard shortcuts (Ctrl+1…5, F5, Ctrl+F, Tab), window
   size and position remembered.
 
-Design and security model: [docs/design.md](docs/design.md). Packaging: [docs/packaging.md](docs/packaging.md).
+Design and security model: [docs/design.md](docs/design.md). Packaging: [docs/packaging.md](docs/packaging.md), Nix flake: [docs/nix.md](docs/nix.md).
 Testing on Windows: [docs/windows.md](docs/windows.md).
 
 ## Build
