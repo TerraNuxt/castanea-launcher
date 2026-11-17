@@ -53,11 +53,13 @@ crates/core   castanea-launcher-core: no UI, no window, everything testable
   mods        mod.json reading, the installed mods, enable/disable, import, dependency and version checks
   index       the ModIndex trait, the index format, the static-file and HTTP clients, the cache, updates
   download    HTTPS download with size limit, SHA-256 check, progress and speed, retry with backoff, resumable (Range) downloads
+  signature   Ed25519 release signatures: the canonical message and the check; trust: the embedded public keys
+  selfupdate  the launcher replacing itself: check, stage, apply plans (Linux rename, Windows rename trick), install location, rollback state
 crates/ui     castanea-launcher: the eframe window on top of core; strings from lang/*.json
 ```
 
 The UI never touches the network on its frame: long work runs on a worker thread (`ui/jobs.rs`) and sends results back
-over a channel. `ui/game.rs` holds the update state machine and the running game; `ui/app.rs` the rest of the state.
+over a channel. `ui/game.rs` holds the game's update state machine and the running game, `ui/launcher.rs` the launcher's own; `ui/app.rs` the rest of the state.
 
 ## Data on disk
 
@@ -81,6 +83,7 @@ data/
     saves/ settings.json crash/ debug/  written by the game
     logs/latest.log        the last run's output; logs/<stamp>.log for older runs (the last 10 kept)
   window/                  eframe's window state (size, position)
+  launcher-update/         the launcher's own update: staged/ (unpacked new launcher), staged.json, update-pending (the rollback marker), skip.json (versions that failed to start)
 config/
   launcher.json
 cache/
@@ -172,13 +175,60 @@ implementation (a local path or an `https://` URL to one JSON file) and caches t
 offline. Install: download, check size and SHA-256 from the index, check the zip, put it into the mods folder disabled,
 then the user enables it. Updates: an installed mod whose id is in the index with a newer compatible version.
 
+## Launcher self-update
+
+Code: `crates/core/src/selfupdate.rs` and its folder (no UI), `crates/ui/src/launcher.rs` (state, line, restart). The
+game's update flow above is separate and unchanged.
+
+- **Check**: once per start, after the game's own check is done (never while the game's update is downloading or being
+  swapped), unless offline mode or Settings → General → *Update the launcher automatically* is off. It asks the release
+  API for `product=launcher` for the running platform; the channel follows the beta switch (stable, plus beta when it is
+  on, the higher version wins). It compares with `CARGO_PKG_VERSION` as semver: only a newer version counts, never a
+  downgrade, and a version on the skip list (below) is ignored. Failures (offline, server down) are quiet: the line says it
+  could not check.
+- **Stage**: the zip goes through the same resumable download as the game (Range, SHA-256), then the signature check
+  ([release-api.md](release-api.md#signatures); a launcher is never accepted unsigned), then the zip limits (64 entries,
+  512 MB, no `..`, no absolute paths, no symlinks) into `<data>/launcher-update/staged/`. A staged copy of the same
+  release is reused.
+- **Where the launcher lives decides what happens** (`selfupdate::detect`): if its folder is writable and it is not
+  an AppImage, a system folder (`/usr`, `/nix/store`, `/snap`, `/app`, `Program Files`, `WindowsApps`) it replaces itself.
+  Otherwise (a *managed install*) nothing is downloaded or replaced: About shows "update available: 0.3.0 (managed
+  install)", says why, shows the notes and has a button that opens the download page.
+- **Apply on Linux**: the running file may be replaced by a rename. The current file is copied to
+  `castanea-launcher.old`, the new one is copied next to it (same filesystem), given the old file's mode and
+  renamed over `castanea-launcher` in one atomic step.
+- **Apply on Windows**: the running exe cannot be overwritten or deleted but can be renamed. It becomes
+  `castanea-launcher.old.exe`, the new exe is copied next to it and renamed to `castanea-launcher.exe`. The running
+  process carries on; About and the home page offer **Restart to finish the update** (the next start also runs the new
+  one). A step that fails is undone, so the launcher is never left without an exe. A rename that a virus scanner blocks
+  is tried 5 times.
+- **Both** are written as a list of operations (`apply_plan`, `rollback_plan`) that tests run on any system, with an
+  undo of the finished steps when one fails.
+- **Rollback** (a file-based state machine, `selfupdate::startup`, first thing in `main`): before applying, the launcher
+  writes `<data>/launcher-update/update-pending` (from, to, time). The new launcher stamps `started_at` into it when it
+  starts, and the marker is deleted after the third drawn frame, which also deletes `.old`/`.bad`/`.new` (quietly retried
+  for 5 seconds if a file is locked). A marker that is still stamped at the next start means the new launcher never drew
+  a frame (it crashed, within seconds of starting): that start restores `.old` over the executable (on Windows the broken
+  exe is first renamed to `.bad.exe`), writes the failed version to `skip.json`, deletes the marker, starts the
+  restored launcher and exits. A marker for another version than the running one is stale and dropped. With no `.old` to
+  restore, the marker and the version are dropped and the launcher runs on. About lists skipped versions.
+- **UI**: one quiet line, `castanea launcher 0.2.0 · up to date`, or `update 0.3.0 downloading 43 %`, `restart to update
+  to 0.3.0`, `update available: 0.3.0 (managed install)`, `update 0.3.0 refused, not signed by castanea`, offline,
+  automatic updates off, could not check (English and German). The home page only gets a quiet *Restart to finish the update*
+  link next to What's new. Restart is refused while the game runs.
+
 ## Security model
 
 - Downloads use HTTPS only. Plain `http://` is refused, except to `127.0.0.1` and `localhost` when a test asks for it.
 - Every download has a SHA-256 from a trusted place (the index, or the release API) and a size limit; a
-  mismatch deletes the file and keeps the installed build. Signatures (Ed25519 over the index, field `signature`) are
-  planned: the format has room for them, the client does not check them yet.
-- The launcher never runs downloaded code except the game binary, and it never runs anything from a mod. Mods are
+  mismatch deletes the file and keeps the installed build.
+- **Releases are signed.** After the hash, the game and the launcher downloads are verified with Ed25519 against keys
+  embedded in the launcher ([release-api.md](release-api.md#signatures)). An unsigned, wrongly signed or unknown-key
+  release is refused and nothing is unpacked. The key list is compiled in; `CASTANEA_TRUST_KEYS_FILE` works in debug builds only.
+  The private key stays on the build host. The mod index's own signature (`docs/mod-index.md`) is still planned.
+- The only downloaded code the launcher runs is the game binary, and its own new version after a signed, hash-checked
+  self-update. Nothing from a mod.
+- The launcher never runs anything from a mod. Mods are
   untrusted data: archives are unpacked by the game, not by the launcher, but are checked for unsafe paths on import.
   Wasm in a mod runs only inside the game's sandbox; native code cannot come with a mod (Rust `ModApi` mods are
   compiled into the game).
@@ -191,4 +241,4 @@ then the user enables it. Updates: an installed mod whose id is in the index wit
 - Whether the game should print `--version` or ship `version.txt`.
 - Whether `mod.json` should get a `game` key (a version range) so the range does not depend on the index.
 - Where the public index lives (a file in a repo, the backend, a CDN) and who signs it.
-- Whether the launcher should update itself.
+- Authenticode signing of the Windows exe (SmartScreen) and an MSI: see [packaging.md](packaging.md).

@@ -21,9 +21,15 @@ newest release (checked, downloaded and verified at start), starts it, and is a 
   There are no profiles and no version choice: one game install, one game folder, always the newest release.
 - **Updates**: at start the launcher asks the release server (`https://castanea.xenoo.dev`, [contract](docs/release-api.md))
   for the newest build for this platform (`stable`, or also `beta` with Settings → Advanced → Include beta builds), downloads
-  it (a dropped connection or a restart continues the partial file), checks its SHA-256 and swaps it in; a download
-  that fails the check is thrown away and the installed build stays. "What's new" shows the release notes.
+  it (a dropped connection or a restart continues the partial file), checks its SHA-256 and its Ed25519 signature
+  (releases are signed by castanea, the public keys are built into the launcher) and swaps it in; a download that fails
+  either check is thrown away and the installed build stays. "What's new" shows the release notes.
   Offline, the installed build is used.
+- **Launcher updates itself**: once per start (switch in Settings → General, off in offline mode) it looks for a newer
+  launcher of the same channel, downloads and verifies it the same way and puts it next to the running one; About shows
+  `castanea launcher 0.2.0 · up to date` or `restart to update to 0.3.0`. A launcher that does not start is rolled
+  back. If the launcher is installed by a package manager, as an AppImage or in a read-only folder it never replaces itself
+  and only shows the new version and a link ([design](docs/design.md#launcher-self-update)).
 - **Mods → Installed**: the mods of the game folder from `mod.json`: switch on and off, remove, update, import a zip
   or folder, open the folder; missing or disabled dependencies, duplicate ids, cycles and game-version mismatches are
   shown.
@@ -33,7 +39,8 @@ newest release (checked, downloaded and verified at start), starts it, and is a 
   in `crash/`) is shown with its report.
 - **Settings**: language, offline mode; the game's player name, relay server (`backend_url`), graphics backend
   (`CASTANEA_BACKEND=vulkan|wgpu`), window size, extra arguments and environment; mod indexes; under Advanced a local
-  build folder for people who build the game from source, the release server address, beta builds, and the folders.
+  build folder for people who build the game from source, the release server address, beta builds, a developer-only
+  switch for unsigned game builds (ignored by release builds), and the folders.
 - English and German (`crates/ui/lang/*.json`), a matte dark theme, keyboard shortcuts (Ctrl+1…5, F5, Ctrl+F, Tab,
   Enter, Esc), screen reader names for every control (AccessKit), the system window frame, window size and position
   remembered, from 1000x640 up.
@@ -42,7 +49,8 @@ An older launcher home with profiles is moved over once: the last used profile's
 the other profile folders stay where they are.
 
 Design, the update flow and the security model: [docs/design.md](docs/design.md). The look, every page as a wireframe
-and the theme tokens: [docs/ui-design.md](docs/ui-design.md). Packaging: [docs/packaging.md](docs/packaging.md), Nix
+and the theme tokens: [docs/ui-design.md](docs/ui-design.md). Packaging and the steps to build, sign and publish a launcher release (`tools/release.sh`, `tools/publish.sh`):
+[docs/packaging.md](docs/packaging.md), Nix
 flake: [docs/nix.md](docs/nix.md). Testing on Windows: [docs/windows.md](docs/windows.md).
 
 ## Build

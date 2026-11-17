@@ -7,6 +7,11 @@ is built against (`crates/core/src/install/release_api.rs`, tested against a loc
 Release server), overridden by the environment variable `CASTANEA_RELEASE_URL`. Only `https://` is accepted, and
 `http://` to `127.0.0.1`, `localhost` or `[::1]` for tests.
 
+The server hosts two products, the **game** and the **launcher** itself. Every route takes `product=game|launcher`
+(the game when it is left out, which is why the game's requests look as they always did). Every release is signed
+([Signatures](#signatures)). The server side is documented in `castanea-backend` `docs/releases.md`; where the two
+differ, that page wins.
+
 ## Platforms and channels
 
 | | Values |
@@ -20,12 +25,13 @@ a newer stable release wins over an older beta. With them off it never sends `ch
 
 ## Endpoints
 
-### `GET {base}/v1/releases/latest?platform=P&channel=C`
+### `GET {base}/v1/releases/latest?platform=P&channel=C[&product=launcher]`
 
 `200`:
 
 ```json
 {
+  "product": "game",
   "version": "0.3.0",
   "channel": "stable",
   "platform": "linux-x86_64",
@@ -33,9 +39,15 @@ a newer stable release wins over an older beta. With them off it never sends `ch
   "size": 183746211,
   "sha256": "<64 lower-case hex digits>",
   "url": "{base}/v1/releases/0.3.0/linux-x86_64/download",
-  "notes": "## What's new\n\n- Faster world loading"
+  "notes": "## What's new\n\n- Faster world loading",
+  "signature": "<base64, 88 characters>",
+  "key_id": "<16 lower-case hex digits>"
 }
 ```
+
+`signature` and `key_id` are `null` for a release published without one. The launcher refuses those (see below).
+For the launcher product `url` is `{base}/v1/releases/<version>/<platform>/download?product=launcher`; the launcher
+uses every `url` as given.
 
 `notes` is markdown; the launcher shows it as plain text (headings and emphasis marks removed, list items with a bullet,
 links as their text). `size` and `sha256` describe the zip. `url` must start with `{base}/`, or the release is refused
@@ -50,7 +62,7 @@ address, not as "no release".
 `200` `{"releases":[ <the same object as above>, … ]}`, newest first. The launcher client has it (`ReleaseApi::list`) but
 the update check uses `latest` only: one install, always the newest release.
 
-### `GET {base}/v1/releases/<version>/<platform>/download`
+### `GET {base}/v1/releases/<version>/<platform>/download[?product=launcher]`
 
 The zip, streamed. It carries `Content-Length`, `ETag: "<sha256>"` (the same hash as the release's `sha256`, in quotes)
 and supports HTTP `Range` (`bytes=N-`, answered `206` with `Content-Range`), and honours `If-Range: "<sha256>"` (a
@@ -58,7 +70,47 @@ different ETag gets the whole file with `200`). When the server is rate limiting
 <seconds>`.
 
 The zip holds at its root the game executable (`castanea`, or `castanea.exe` on Windows) and the `assets/` folder, and
-optionally `version.txt`. One top folder around everything is tolerated and dropped.
+optionally `version.txt`. One top folder around everything is tolerated and dropped. A launcher zip holds
+`castanea-launcher` (`castanea-launcher.exe`) at its root and optionally a `LICENSE`.
+
+## Signatures
+
+Ed25519 (RFC 8032) over exactly this UTF-8 text, lines joined with `\n`, no trailing newline:
+
+```
+castanea-release-v1
+<product>
+<version>
+<platform>
+<channel>
+<sha256, lower-case hex of the zip>
+<size of the zip, decimal bytes>
+```
+
+`signature` is the 64 raw bytes in standard padded base64. `key_id` is the first 8 bytes of the SHA-256 of the raw
+32-byte public key, as 16 hex digits. The public keys are embedded in the launcher (`crates/core/src/trust.rs`,
+`TRUST_KEYS`, several for rotation; a compile-time check refuses an empty list). The first one is the release key
+published in `castanea-backend` `docs/releases.md` (`key_id` `c6dafdb0e8d6c8ff`).
+
+What the launcher checks, in this order, for both products, before it unpacks a byte:
+
+1. The finished download hashes (SHA-256) to the API's `sha256`, so the hash is the real file's.
+2. The message is built from the API's `product` (the one asked for), `version`, `platform`, `channel` and **the
+   downloaded file's own** hash and size, never from the API's text of them alone.
+3. `signature` is present, valid base64 of 64 bytes, `key_id` names a trusted key, and the signature verifies
+   (`verify_strict`). A tampered size, channel, version, platform or product fails here.
+
+Any failure deletes the download, keeps the installed build or launcher, and shows "this download is not signed by
+castanea" with the reason (no signature, malformed, unknown key, does not match). Test vectors (the key with seed
+`00 01 … 1f`) are in `crates/core/src/signature/tests.rs` and in the backend's `docs/releases.md`; the tests also cover a
+tampered size, a tampered channel, the wrong key, a truncated signature and a rotated key list.
+
+Settings → Advanced → **Allow unsigned builds** (off by default) lets a *game* build with a missing or wrong signature
+install. It is for developers and is ignored by release builds of the launcher (`Settings::unsigned_allowed`); the
+launcher's own updates always need a signature. A local build folder is never downloaded, so it needs no signature.
+
+`CASTANEA_TRUST_KEYS_FILE` (one base64 public key per line, `#` comments) replaces the embedded list in debug builds and
+tests only; a release build ignores it, so a release cannot be redirected to other keys.
 
 ## What the launcher does with it
 
@@ -70,6 +122,7 @@ optionally `version.txt`. One top folder around everything is tolerated and drop
 | Resume | `Range: bytes=<size of the partial file>-` with `If-Range: "<sha256>"`. A `206` must start at that byte and, if `Content-Range` gives a total, the total must be `size`; otherwise the file starts again. A `200` replaces the partial file from byte 0. |
 | ETag | If the response has an `ETag`, it must equal `"<sha256>"` of the release (weak `W/` prefix tolerated). Otherwise the launcher refuses ("not the release's build"), deletes the partial file and keeps the installed build. A response without an ETag is accepted, the SHA-256 below decides. |
 | Verify | The finished file is hashed (SHA-256) and compared with the API's `sha256`, and its length with `size`. A mismatch deletes the file; the installed build stays; the home page says the download failed. |
+| Signature | After the hash: see [Signatures](#signatures). Nothing is unpacked before it holds. |
 | Unpack | The existing zip limits (entry count, unpacked size, no `..`, no absolute paths, no symlinks). The result must have the platform's executable and `assets/`, else it is refused and deleted. |
 | Swap | `build/next` → `build/current` through `build/previous`, put back on failure (docs/design.md). |
 | Notes | Kept in `install.json`; "What's new" on the home page shows them (during the download: those of the new version). |
@@ -88,6 +141,7 @@ optionally `version.txt`. One top folder around everything is tolerated and drop
 | Other `4xx` | Error with the status; nothing is deleted except an unusable partial file. |
 | ETag of another build | Refused, partial file deleted (see above). |
 | SHA-256 or size mismatch | File deleted, installed build kept, error shown. |
+| Signature missing, malformed, unknown key or invalid | File deleted, nothing unpacked, installed build or launcher kept, "this download is not signed by castanea" shown. |
 | Archive without executable or `assets/`, unsafe paths, over the limits | Refused, `build/next` deleted, installed build kept. |
 | Platform not supported | No request; "There is no game build for this system yet." |
 | `url` not on `{base}`, wrong `platform`, bad `sha256`, `size` 0 | The release is refused as invalid. |
@@ -99,6 +153,5 @@ optionally `version.txt`. One top folder around everything is tolerated and drop
   for both and compares.
 - `ETag` and `If-None-Match` on `latest` (a cheap `304` for every start).
 - `min_launcher_version` in a release, so the server can tell an old launcher that the zip layout changed.
-- A detached signature (`signature`, Ed25519 over the `sha256`) so the launcher can verify more than the TLS connection.
 - `Content-Type: application/zip` and `Content-Disposition` on the download (the launcher does not rely on them).
 - `Retry-After` as an HTTP date is not parsed (only seconds); the server should send seconds.
