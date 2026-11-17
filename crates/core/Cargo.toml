@@ -1,0 +1,24 @@
+[package]
+name = "castanea-launcher-core"
+description = "Game installs, profiles, launching, mods and the mod index of the castanea launcher, without UI"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+semver.workspace = true
+zip.workspace = true
+ureq.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+junction = "1"
+
+[dev-dependencies]
+tempfile.workspace = true
+tiny_http.workspace = true
