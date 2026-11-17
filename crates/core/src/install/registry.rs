@@ -13,7 +13,11 @@ use crate::{Error, Result};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Origin {
-    Github { repo: String, tag: String, asset: String },
+    Github {
+        repo: String,
+        tag: String,
+        asset: String,
+    },
     /// A folder the user picked; never copied or changed.
     Local,
     /// Found on disk by `detect`.

@@ -25,7 +25,8 @@ fn the_game_example_manifests_parse() {
         if !path.exists() {
             continue;
         }
-        let manifest = Manifest::parse(&fs::read_to_string(&path).unwrap()).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let manifest =
+            Manifest::parse(&fs::read_to_string(&path).unwrap()).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         assert!(manifest.unknown_keys.is_empty(), "{}", path.display());
         seen.push(manifest);
     }
@@ -132,6 +133,9 @@ fn imports_land_disabled_and_refuse_bad_packages() {
     let slip = dir.path().join("slip.zip");
     write_zip(&slip, &[("mod.json", br#"{"id":"y","name":"Y","version":"1"}"#), ("../y.txt", b"x")]);
     assert!(import(&mods, &slip, false).is_err());
-    let names: Vec<String> = fs::read_dir(mods.join(DISABLED_DIR)).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+    let names: Vec<String> = fs::read_dir(mods.join(DISABLED_DIR))
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
     assert_eq!(names.len(), 2, "no temp files left: {names:?}");
 }

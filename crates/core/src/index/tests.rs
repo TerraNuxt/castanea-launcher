@@ -67,7 +67,8 @@ fn a_remote_index_is_cached_revalidated_and_used_offline() {
     assert_eq!(first.freshness, Freshness::Fresh);
     let second = source.load(&client, false).unwrap();
     assert_eq!(second.freshness, Freshness::NotModified);
-    let sent_etag = server.seen.lock().unwrap().iter().filter(|(_, h)| h.iter().any(|(k, _)| k == "if-none-match")).count();
+    let sent_etag =
+        server.seen.lock().unwrap().iter().filter(|(_, h)| h.iter().any(|(k, _)| k == "if-none-match")).count();
     assert_eq!(sent_etag, 1);
     let offline = source.load(&client, true).unwrap();
     assert_eq!(offline.freshness, Freshness::Cached);
@@ -132,7 +133,9 @@ fn a_mod_installs_disabled_and_an_update_keeps_it_enabled() {
     let index = index_for(&server, &[("frost", "1.0.0", &v1)]);
     let item = index.get("frost").unwrap();
     let client = TestServer::client();
-    let package = install::install(&client, item, &item.versions[0], &mods, &downloads, &mut |_, _| {}, &AtomicBool::new(false)).unwrap();
+    let package =
+        install::install(&client, item, &item.versions[0], &mods, &downloads, &mut |_, _| {}, &AtomicBool::new(false))
+            .unwrap();
     assert!(!package.enabled);
     installed::set_enabled(&mods, &package, true).unwrap();
 
@@ -144,7 +147,9 @@ fn a_mod_installs_disabled_and_an_update_keeps_it_enabled() {
     assert_eq!(updates.len(), 1);
     assert_eq!((updates[0].installed.as_str(), updates[0].available.as_str()), ("1.0.0", "1.1.0"));
     let item = index.get("frost").unwrap();
-    let package = install::install(&client, item, &item.versions[0], &mods, &downloads, &mut |_, _| {}, &AtomicBool::new(false)).unwrap();
+    let package =
+        install::install(&client, item, &item.versions[0], &mods, &downloads, &mut |_, _| {}, &AtomicBool::new(false))
+            .unwrap();
     assert!(package.enabled);
     let listed = installed::list(&mods).unwrap();
     assert_eq!(listed.len(), 1);
@@ -166,14 +171,18 @@ fn a_tampered_or_mislabelled_mod_is_refused() {
     server.put("/frost.zip", evil);
     let item = index.get("frost").unwrap();
     let client = TestServer::client();
-    let error = install::install(&client, item, &item.versions[0], &mods, dir.path(), &mut |_, _| {}, &AtomicBool::new(false)).unwrap_err();
+    let error =
+        install::install(&client, item, &item.versions[0], &mods, dir.path(), &mut |_, _| {}, &AtomicBool::new(false))
+            .unwrap_err();
     assert!(error.to_string().contains("SHA-256"), "{error}");
 
     let other = mod_zip(dir.path(), "notfrost", "1.0.0");
     server.put("/frost.zip", other.clone());
     let index = index_for(&server, &[("frost", "1.0.0", &other)]);
     let item = index.get("frost").unwrap();
-    let error = install::install(&client, item, &item.versions[0], &mods, dir.path(), &mut |_, _| {}, &AtomicBool::new(false)).unwrap_err();
+    let error =
+        install::install(&client, item, &item.versions[0], &mods, dir.path(), &mut |_, _| {}, &AtomicBool::new(false))
+            .unwrap_err();
     assert!(error.to_string().contains("index says"), "{error}");
     assert!(installed::list(&mods).unwrap().is_empty());
 }

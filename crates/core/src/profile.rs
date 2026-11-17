@@ -37,8 +37,14 @@ impl Graphics {
 pub enum StartIn {
     #[default]
     Menu,
-    World { name: String, seed: String, host_port: Option<u16> },
-    Join { address: String },
+    World {
+        name: String,
+        seed: String,
+        host_port: Option<u16>,
+    },
+    Join {
+        address: String,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -137,7 +143,11 @@ impl Profiles {
         if self.profiles.len() == 1 {
             return Err(Error::invalid("the last profile cannot be removed"));
         }
-        let index = self.profiles.iter().position(|p| p.id == id).ok_or_else(|| Error::invalid(format!("no profile `{id}`")))?;
+        let index = self
+            .profiles
+            .iter()
+            .position(|p| p.id == id)
+            .ok_or_else(|| Error::invalid(format!("no profile `{id}`")))?;
         Ok(self.profiles.remove(index))
     }
 }

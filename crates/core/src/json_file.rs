@@ -20,7 +20,8 @@ pub fn load_or_default<T: DeserializeOwned + Default>(path: &Path) -> Result<T> 
 
 /// Writes pretty JSON to a temp file next to `path` and renames it over `path`.
 pub fn save<T: Serialize>(path: &Path, value: &T) -> Result<()> {
-    let mut text = serde_json::to_string_pretty(value).map_err(|error| Error::json(path.display().to_string(), error))?;
+    let mut text =
+        serde_json::to_string_pretty(value).map_err(|error| Error::json(path.display().to_string(), error))?;
     text.push('\n');
     write_atomic(path, text.as_bytes())
 }

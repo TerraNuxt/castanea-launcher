@@ -39,7 +39,9 @@ fn a_download_with_the_right_hash_lands_and_reports_progress() {
     let mut last = (0, None);
     let mut req = request(&url, &hash);
     req.size = Some(body.len() as u64);
-    TestServer::client().download(&req, &dest, &mut |done, total| last = (done, total), &AtomicBool::new(false)).unwrap();
+    TestServer::client()
+        .download(&req, &dest, &mut |done, total| last = (done, total), &AtomicBool::new(false))
+        .unwrap();
     assert_eq!(fs::read(&dest).unwrap(), body);
     assert_eq!(last, (200_000, Some(200_000)));
     assert!(!dest.with_extension("part").exists());
@@ -53,7 +55,9 @@ fn a_wrong_hash_leaves_no_file() {
     let dest = dir.path().join("a.zip");
     let url = server.url("/a.zip");
     let wrong = sha256_hex(b"good bytes");
-    let error = TestServer::client().download(&request(&url, &wrong), &dest, &mut |_, _| {}, &AtomicBool::new(false)).unwrap_err();
+    let error = TestServer::client()
+        .download(&request(&url, &wrong), &dest, &mut |_, _| {}, &AtomicBool::new(false))
+        .unwrap_err();
     assert!(matches!(error, Error::Hash { .. }), "{error}");
     assert!(!dest.exists());
     assert!(!dest.with_extension("part").exists());
@@ -75,7 +79,9 @@ fn size_limits_and_missing_files_fail() {
     sized.size = Some(4000);
     assert!(TestServer::client().download(&sized, &dest, &mut |_, _| {}, &AtomicBool::new(false)).is_err());
     let gone = server.url("/gone");
-    let error = TestServer::client().download(&request(&gone, &hash), &dest, &mut |_, _| {}, &AtomicBool::new(false)).unwrap_err();
+    let error = TestServer::client()
+        .download(&request(&gone, &hash), &dest, &mut |_, _| {}, &AtomicBool::new(false))
+        .unwrap_err();
     assert!(error.to_string().contains("404"), "{error}");
     assert!(!dest.exists());
 }
@@ -88,7 +94,9 @@ fn a_cancelled_download_stops_and_cleans_up() {
     let dest = dir.path().join("a");
     let url = server.url("/a");
     let hash = sha256_hex(&[1u8; 100_000]);
-    let error = TestServer::client().download(&request(&url, &hash), &dest, &mut |_, _| {}, &AtomicBool::new(true)).unwrap_err();
+    let error = TestServer::client()
+        .download(&request(&url, &hash), &dest, &mut |_, _| {}, &AtomicBool::new(true))
+        .unwrap_err();
     assert!(error.to_string().contains("cancelled"));
     assert!(!dest.with_extension("part").exists());
 }

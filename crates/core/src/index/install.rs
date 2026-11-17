@@ -26,11 +26,19 @@ pub fn install(
     cancel: &AtomicBool,
 ) -> Result<InstalledMod> {
     if version.size > MAX_MOD {
-        return Err(Error::refused(format!("{} {}: {} bytes is over the limit", item.id, version.version, version.size)));
+        return Err(Error::refused(format!(
+            "{} {}: {} bytes is over the limit",
+            item.id, version.version, version.size
+        )));
     }
     let zip = downloads_dir.join(format!("{}.zip", version.sha256));
-    let request =
-        Request { url: &version.url, sha256: &version.sha256, size: Some(version.size), max_bytes: MAX_MOD, headers: Vec::new() };
+    let request = Request {
+        url: &version.url,
+        sha256: &version.sha256,
+        size: Some(version.size),
+        max_bytes: MAX_MOD,
+        headers: Vec::new(),
+    };
     client.download(&request, &zip, progress, cancel)?;
     let result = install_checked(item, version, mods_dir, &zip);
     let _ = fs::remove_file(&zip);

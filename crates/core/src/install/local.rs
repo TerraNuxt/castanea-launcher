@@ -45,7 +45,10 @@ pub fn read_version(root: &Path, binary: &Path) -> String {
 pub fn inspect(registry: &Registry, folder: &Path, origin: Origin) -> Result<Build> {
     let root = folder.canonicalize().map_err(|error| Error::io(folder, error))?;
     let binary = find_binary(&root).ok_or_else(|| {
-        Error::invalid(format!("{}: no game here (needs assets/ and {BINARY} or target/release/{BINARY})", root.display()))
+        Error::invalid(format!(
+            "{}: no game here (needs assets/ and {BINARY} or target/release/{BINARY})",
+            root.display()
+        ))
     })?;
     if let Some(known) = registry.builds.iter().find(|b| b.root == root) {
         return Ok(known.clone());

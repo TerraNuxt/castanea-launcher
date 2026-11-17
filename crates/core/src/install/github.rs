@@ -68,12 +68,17 @@ impl GithubReleases {
 
     /// Parses the API's release list; drafts and releases without a fitting asset are kept, the asset left empty.
     pub fn parse_releases(&self, json: &[u8]) -> Result<Vec<RemoteBuild>> {
-        let releases: Vec<ApiRelease> = serde_json::from_slice(json).map_err(|error| Error::json("GitHub releases", error))?;
+        let releases: Vec<ApiRelease> =
+            serde_json::from_slice(json).map_err(|error| Error::json("GitHub releases", error))?;
         Ok(releases
             .into_iter()
             .filter(|r| !r.draft)
             .map(|release| {
-                let sums = release.assets.iter().find(|a| a.name == "SHA256SUMS").map(|a| (a.browser_download_url.clone(), a.url.clone()));
+                let sums = release
+                    .assets
+                    .iter()
+                    .find(|a| a.name == "SHA256SUMS")
+                    .map(|a| (a.browser_download_url.clone(), a.url.clone()));
                 let asset = release.assets.iter().find(|a| asset_fits(&a.name, &self.target)).map(|a| Asset {
                     name: a.name.clone(),
                     download_url: a.browser_download_url.clone(),
@@ -126,13 +131,14 @@ impl GameSource for GithubReleases {
 
     fn list(&self, client: &Client) -> Result<Vec<RemoteBuild>> {
         let url = format!("{}/repos/{}/releases?per_page=30", self.api, self.repo);
-        let bytes = client.get_bytes(&url, &self.headers("application/vnd.github+json")).map_err(|error| match error {
-            Error::Http { url, message } if message.contains("404") => Error::Http {
-                url,
-                message: "HTTP 404: no such repository, or it is private and needs a token".to_owned(),
-            },
-            other => other,
-        })?;
+        let bytes =
+            client.get_bytes(&url, &self.headers("application/vnd.github+json")).map_err(|error| match error {
+                Error::Http { url, message } if message.contains("404") => Error::Http {
+                    url,
+                    message: "HTTP 404: no such repository, or it is private and needs a token".to_owned(),
+                },
+                other => other,
+            })?;
         self.parse_releases(&bytes)
     }
 
@@ -145,11 +151,24 @@ impl GameSource for GithubReleases {
         progress: Progress<'_>,
         cancel: &AtomicBool,
     ) -> Result<Build> {
-        let asset = build.asset.as_ref().ok_or_else(|| Error::invalid(format!("{}: no archive for {}", build.id, self.target)))?;
+        let asset = build
+            .asset
+            .as_ref()
+            .ok_or_else(|| Error::invalid(format!("{}: no archive for {}", build.id, self.target)))?;
         let sha256 = self.checksum(client, asset)?;
-        let (url, accept) = if self.token.is_some() { (&asset.api_url, "application/octet-stream") } else { (&asset.download_url, "*/*") };
+        let (url, accept) = if self.token.is_some() {
+            (&asset.api_url, "application/octet-stream")
+        } else {
+            (&asset.download_url, "*/*")
+        };
         let zip = downloads_dir.join(format!("{sha256}.zip"));
-        let request = Request { url, sha256: &sha256, size: Some(asset.size), max_bytes: MAX_ARCHIVE, headers: self.headers(accept) };
+        let request = Request {
+            url,
+            sha256: &sha256,
+            size: Some(asset.size),
+            max_bytes: MAX_ARCHIVE,
+            headers: self.headers(accept),
+        };
         client.download(&request, &zip, progress, cancel)?;
         let root = versions_dir.join(&build.id);
         let unpacked = archive::extract(&zip, &root, Limits::GAME);

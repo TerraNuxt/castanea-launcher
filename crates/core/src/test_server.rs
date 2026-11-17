@@ -6,10 +6,13 @@ use std::thread;
 
 use crate::download::{Client, UrlPolicy};
 
+/// Each request: its path and its headers (names in lower case).
+pub type Seen = Arc<Mutex<Vec<(String, Vec<(String, String)>)>>>;
+
 pub struct TestServer {
     pub base: String,
     files: Arc<Mutex<HashMap<String, Vec<u8>>>>,
-    pub seen: Arc<Mutex<Vec<(String, Vec<(String, String)>)>>>,
+    pub seen: Seen,
     server: Arc<tiny_http::Server>,
     thread: Option<thread::JoinHandle<()>>,
 }
@@ -19,14 +22,17 @@ impl TestServer {
         let server = Arc::new(tiny_http::Server::http("127.0.0.1:0").unwrap());
         let port = server.server_addr().to_ip().unwrap().port();
         let files: Arc<Mutex<HashMap<String, Vec<u8>>>> = Arc::default();
-        let seen: Arc<Mutex<Vec<(String, Vec<(String, String)>)>>> = Arc::default();
+        let seen: Seen = Arc::default();
         let thread = {
             let (server, files, seen) = (server.clone(), files.clone(), seen.clone());
             thread::spawn(move || {
                 for request in server.incoming_requests() {
                     let path = request.url().to_owned();
-                    let headers: Vec<(String, String)> =
-                        request.headers().iter().map(|h| (h.field.to_string().to_ascii_lowercase(), h.value.to_string())).collect();
+                    let headers: Vec<(String, String)> = request
+                        .headers()
+                        .iter()
+                        .map(|h| (h.field.to_string().to_ascii_lowercase(), h.value.to_string()))
+                        .collect();
                     seen.lock().unwrap().push((path.clone(), headers.clone()));
                     let body = files.lock().unwrap().get(&path).cloned();
                     let response = match body {

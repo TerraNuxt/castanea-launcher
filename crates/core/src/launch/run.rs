@@ -67,7 +67,12 @@ impl Running {
         let crashes_before = crash_files(&plan.cwd);
 
         let mut command = Command::new(&plan.program);
-        command.args(&plan.args).current_dir(&plan.cwd).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+        command
+            .args(&plan.args)
+            .current_dir(&plan.cwd)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
         for (key, value) in &plan.env {
             command.env(key, value);
         }
@@ -124,7 +129,11 @@ impl Running {
     }
 }
 
-fn reader(stream: impl Read + Send + 'static, log: Arc<Mutex<LogBuffer>>, file: Arc<Mutex<fs::File>>) -> thread::JoinHandle<()> {
+fn reader(
+    stream: impl Read + Send + 'static,
+    log: Arc<Mutex<LogBuffer>>,
+    file: Arc<Mutex<fs::File>>,
+) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         let mut lines = BufReader::new(stream);
         let mut raw = Vec::new();

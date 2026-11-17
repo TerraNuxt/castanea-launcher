@@ -38,7 +38,9 @@ impl Paths {
     #[cfg(not(windows))]
     fn platform() -> Option<Self> {
         let home = var("HOME").map(PathBuf::from);
-        let xdg = |name: &str, fallback: &str| var(name).map(PathBuf::from).or_else(|| home.as_ref().map(|h| h.join(fallback)));
+        let xdg = |name: &str, fallback: &str| {
+            var(name).map(PathBuf::from).or_else(|| home.as_ref().map(|h| h.join(fallback)))
+        };
         Some(Self {
             config: xdg("XDG_CONFIG_HOME", ".config")?.join(APP),
             data: xdg("XDG_DATA_HOME", ".local/share")?.join(APP),

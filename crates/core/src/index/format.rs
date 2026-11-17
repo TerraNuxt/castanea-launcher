@@ -96,7 +96,10 @@ impl Index {
     pub fn parse(bytes: &[u8], what: &str, policy: UrlPolicy) -> Result<Self> {
         let mut index: Self = serde_json::from_slice(bytes).map_err(|error| Error::json(what, error))?;
         if index.format != FORMAT {
-            return Err(Error::invalid(format!("{what}: index format {} is not supported (this launcher reads {FORMAT})", index.format)));
+            return Err(Error::invalid(format!(
+                "{what}: index format {} is not supported (this launcher reads {FORMAT})",
+                index.format
+            )));
         }
         for item in &mut index.mods {
             if !valid_id(&item.id) {
@@ -106,7 +109,10 @@ impl Index {
                 version.sha256 = normalise_sha256(&version.sha256)
                     .map_err(|_| Error::invalid(format!("{what}: {} {}: bad sha256", item.id, version.version)))?;
                 if policy.check(&version.url).is_err() {
-                    return Err(Error::invalid(format!("{what}: {} {}: the url must be https://", item.id, version.version)));
+                    return Err(Error::invalid(format!(
+                        "{what}: {} {}: the url must be https://",
+                        item.id, version.version
+                    )));
                 }
             }
             item.versions.sort_by(|a, b| {

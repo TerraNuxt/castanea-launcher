@@ -92,7 +92,13 @@ impl Client {
     }
 
     /// Downloads `url` to `dest`, checking size and SHA-256 on the way. The file appears only when it is right.
-    pub fn download(&self, request: &Request<'_>, dest: &Path, progress: Progress<'_>, cancel: &AtomicBool) -> Result<()> {
+    pub fn download(
+        &self,
+        request: &Request<'_>,
+        dest: &Path,
+        progress: Progress<'_>,
+        cancel: &AtomicBool,
+    ) -> Result<()> {
         let expected = normalise_sha256(request.sha256)?;
         let fetched = self.get(request.url, &request.headers)?;
         if fetched.status != 200 {
@@ -101,7 +107,10 @@ impl Client {
         if let Some(length) = fetched.length
             && length > request.max_bytes
         {
-            return Err(Error::refused(format!("{}: {length} bytes is over the limit of {}", request.url, request.max_bytes)));
+            return Err(Error::refused(format!(
+                "{}: {length} bytes is over the limit of {}",
+                request.url, request.max_bytes
+            )));
         }
         let total = request.size.or(fetched.length);
         let part = dest.with_extension("part");

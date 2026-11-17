@@ -21,7 +21,8 @@ pub fn import(mods_dir: &Path, source: &Path, replace: bool) -> Result<Installed
         }
         (installed::read_manifest(source, Packaging::Zip).map_err(Error::invalid)?, Packaging::Zip)
     };
-    let existing: Vec<InstalledMod> = installed::list(mods_dir)?.into_iter().filter(|m| m.id() == manifest.id).collect();
+    let existing: Vec<InstalledMod> =
+        installed::list(mods_dir)?.into_iter().filter(|m| m.id() == manifest.id).collect();
     if !existing.is_empty() && !replace {
         return Err(Error::invalid(format!("a mod with the id `{}` is already installed", manifest.id)));
     }

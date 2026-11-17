@@ -86,7 +86,9 @@ fn a_release_installs_with_the_digest_and_the_token_goes_to_the_api_url() {
     let client = TestServer::client();
     let build = source.list(&client).unwrap().remove(0);
     let paths = Paths::portable(dir.path());
-    let installed = source.install(&client, &build, &paths.versions(), &paths.downloads(), &mut |_, _| {}, &AtomicBool::new(false)).unwrap();
+    let installed = source
+        .install(&client, &build, &paths.versions(), &paths.downloads(), &mut |_, _| {}, &AtomicBool::new(false))
+        .unwrap();
     assert!(installed.managed);
     assert!(installed.is_present());
     assert_eq!(installed.binary, paths.versions().join("v0.2.0").join(BINARY));
@@ -112,14 +114,18 @@ fn a_release_falls_back_to_sha256sums_and_refuses_a_wrong_archive() {
     let client = TestServer::client();
     let build = source.list(&client).unwrap().remove(0);
     let paths = Paths::portable(dir.path());
-    source.install(&client, &build, &paths.versions(), &paths.downloads(), &mut |_, _| {}, &AtomicBool::new(false)).unwrap();
+    source
+        .install(&client, &build, &paths.versions(), &paths.downloads(), &mut |_, _| {}, &AtomicBool::new(false))
+        .unwrap();
 
     let mut tampered = bytes.clone();
     tampered[10] ^= 1;
     server.put("/dl/game.zip", tampered);
     let mut again = build.clone();
     again.id = "v0.2.0-again".to_owned();
-    let error = source.install(&client, &again, &paths.versions(), &paths.downloads(), &mut |_, _| {}, &AtomicBool::new(false)).unwrap_err();
+    let error = source
+        .install(&client, &again, &paths.versions(), &paths.downloads(), &mut |_, _| {}, &AtomicBool::new(false))
+        .unwrap_err();
     assert!(error.to_string().contains("SHA-256"), "{error}");
     assert!(!paths.versions().join("v0.2.0-again").exists());
 }
@@ -134,7 +140,9 @@ fn a_release_without_any_checksum_is_refused() {
     let client = TestServer::client();
     let build = source.list(&client).unwrap().remove(0);
     let paths = Paths::portable(dir.path());
-    let error = source.install(&client, &build, &paths.versions(), &paths.downloads(), &mut |_, _| {}, &AtomicBool::new(false)).unwrap_err();
+    let error = source
+        .install(&client, &build, &paths.versions(), &paths.downloads(), &mut |_, _| {}, &AtomicBool::new(false))
+        .unwrap_err();
     assert!(error.to_string().contains("no checksum"), "{error}");
 }
 
@@ -163,7 +171,7 @@ fn local_folders_and_checkouts_are_found_and_registered_in_place() {
     for build in found {
         registry.put(build);
     }
-    assert!(detect::detect(&registry, &[release.clone()]).is_empty(), "already known");
+    assert!(detect::detect(&registry, std::slice::from_ref(&release)).is_empty(), "already known");
 
     let paths = Paths::portable(dir.path());
     registry.remove(&paths, "local-castanea-0.4.0").unwrap().unwrap();
@@ -190,7 +198,7 @@ fn managed_builds_are_deleted_and_adopted_back() {
     build.write_install_file().unwrap();
     let mut adopted = Registry::default();
     adopted.adopt_managed(&paths);
-    assert_eq!(adopted.builds, [build.clone()]);
+    assert_eq!(adopted.builds, std::slice::from_ref(&build));
     registry.put(build);
     assert_eq!(registry.free_id("v1"), "v1-2");
     registry.remove(&paths, "v1").unwrap();

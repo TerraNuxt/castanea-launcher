@@ -47,8 +47,19 @@ fn a_world_profile_gives_seed_world_host_name_and_extra_args() {
     assert_eq!(
         args(&plan),
         [
-            "0x5eed", "--world", "lake", "--host", "47900", "--name", "Anna", "--gamemode", "creative", "--assist",
-            "hunger_rate=0.5", "--biome", "deep ocean"
+            "0x5eed",
+            "--world",
+            "lake",
+            "--host",
+            "47900",
+            "--name",
+            "Anna",
+            "--gamemode",
+            "creative",
+            "--assist",
+            "hunger_rate=0.5",
+            "--biome",
+            "deep ocean"
         ]
     );
     assert_eq!(
@@ -70,8 +81,14 @@ fn a_join_profile_and_bad_values() {
     let bad = [
         Profile { start: StartIn::Join { address: "--world".into() }, ..Profile::default() },
         Profile { start: StartIn::Join { address: " ".into() }, ..Profile::default() },
-        Profile { start: StartIn::World { name: "--x".into(), seed: String::new(), host_port: None }, ..Profile::default() },
-        Profile { start: StartIn::World { name: "a".into(), seed: "-1 2".into(), host_port: None }, ..Profile::default() },
+        Profile {
+            start: StartIn::World { name: "--x".into(), seed: String::new(), host_port: None },
+            ..Profile::default()
+        },
+        Profile {
+            start: StartIn::World { name: "a".into(), seed: "-1 2".into(), host_port: None },
+            ..Profile::default()
+        },
         Profile { window: "big".into(), ..Profile::default() },
         Profile { extra_args: "\"open".into(), ..Profile::default() },
         Profile { env: vec![("A=B".into(), "c".into())], ..Profile::default() },
@@ -123,7 +140,8 @@ fn preparing_links_assets_and_writes_backend_url_keeping_other_settings() {
     prepare::prepare(&game, &build(&root), "https://relay.example.org").unwrap();
     assert!(game.join("assets/engine").is_dir());
     assert!(game.join("mods").is_dir());
-    let settings: serde_json::Value = serde_json::from_str(&fs::read_to_string(game.join("settings.json")).unwrap()).unwrap();
+    let settings: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(game.join("settings.json")).unwrap()).unwrap();
     assert_eq!(settings["fov"], 80);
     assert_eq!(settings["backend_url"], "https://relay.example.org");
 

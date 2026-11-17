@@ -29,7 +29,8 @@ pub struct Contents {
 
 fn open(path: &Path) -> Result<zip::ZipArchive<fs::File>> {
     let file = fs::File::open(path).map_err(|error| Error::io(path, error))?;
-    zip::ZipArchive::new(file).map_err(|error| Error::invalid(format!("{}: not a zip archive: {error}", path.display())))
+    zip::ZipArchive::new(file)
+        .map_err(|error| Error::invalid(format!("{}: not a zip archive: {error}", path.display())))
 }
 
 /// A path inside an archive that stays inside the target: relative, no `..`, no drive or root.
@@ -59,7 +60,12 @@ pub fn safe_relative(name: &str) -> Option<PathBuf> {
 pub fn check(path: &Path, limits: Limits) -> Result<Contents> {
     let mut archive = open(path)?;
     if archive.len() > limits.max_entries {
-        return Err(Error::refused(format!("{}: {} entries, the limit is {}", path.display(), archive.len(), limits.max_entries)));
+        return Err(Error::refused(format!(
+            "{}: {} entries, the limit is {}",
+            path.display(),
+            archive.len(),
+            limits.max_entries
+        )));
     }
     let mut files = Vec::new();
     let mut bytes = 0u64;
@@ -124,7 +130,8 @@ pub fn extract(path: &Path, dest: &Path, limits: Limits) -> Result<()> {
 fn extract_into(path: &Path, temp: &Path, prefix: &str) -> Result<()> {
     let mut archive = open(path)?;
     for index in 0..archive.len() {
-        let mut entry = archive.by_index(index).map_err(|error| Error::invalid(format!("{}: {error}", path.display())))?;
+        let mut entry =
+            archive.by_index(index).map_err(|error| Error::invalid(format!("{}: {error}", path.display())))?;
         let name = entry.name().trim_start_matches("./").to_owned();
         let Some(inner) = name.strip_prefix(prefix) else { continue };
         let Some(relative) = safe_relative(inner) else { continue };

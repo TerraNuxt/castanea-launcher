@@ -53,7 +53,10 @@ pub fn check(mods: &[InstalledMod], game: Option<&str>, ranges: &HashMap<String,
         if let Some(range) = ranges.get(&manifest.id)
             && version::compat(Some(range), game) == Compat::No
         {
-            out.push((file.clone(), Problem::Incompatible { range: range.clone(), game: game.unwrap_or("").to_owned() }));
+            out.push((
+                file.clone(),
+                Problem::Incompatible { range: range.clone(), game: game.unwrap_or("").to_owned() },
+            ));
         }
     }
     for id in cycle_members(mods) {

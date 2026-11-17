@@ -30,7 +30,9 @@ pub fn candidates() -> Vec<PathBuf> {
         }
     }
     let home = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).map(PathBuf::from);
-    if let Some(data) = std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).or_else(|| home.as_ref().map(|h| h.join(".local/share"))) {
+    if let Some(data) =
+        std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).or_else(|| home.as_ref().map(|h| h.join(".local/share")))
+    {
         out.push(data.join("castanea"));
     }
     if let Some(home) = home {

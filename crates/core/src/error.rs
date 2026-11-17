@@ -5,11 +5,24 @@ use std::path::Path;
 
 #[derive(Debug)]
 pub enum Error {
-    Io { what: String, source: std::io::Error },
-    Json { what: String, message: String },
-    Http { url: String, message: String },
+    Io {
+        what: String,
+        source: std::io::Error,
+    },
+    Json {
+        what: String,
+        message: String,
+    },
+    Http {
+        url: String,
+        message: String,
+    },
     /// A download or file whose SHA-256 is not the expected one.
-    Hash { what: String, expected: String, actual: String },
+    Hash {
+        what: String,
+        expected: String,
+        actual: String,
+    },
     /// Refused by the security rules (plain HTTP, an unsafe path, a size over the limit, no checksum).
     Refused(String),
     Invalid(String),

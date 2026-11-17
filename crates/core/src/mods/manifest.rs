@@ -71,7 +71,9 @@ fn text_key(map: &Map<String, Value>, key: &str) -> Result<Option<String>, Strin
 fn depends(value: Option<&Value>) -> Result<Vec<String>, String> {
     let list: Vec<String> = match value {
         None => Vec::new(),
-        Some(Value::String(text)) => text.split(',').map(str::trim).filter(|s| !s.is_empty()).map(str::to_owned).collect(),
+        Some(Value::String(text)) => {
+            text.split(',').map(str::trim).filter(|s| !s.is_empty()).map(str::to_owned).collect()
+        }
         Some(Value::Array(items)) => items
             .iter()
             .map(|item| item.as_str().map(|s| s.trim().to_owned()).ok_or("mod.json: `depends` must list ids as text"))
