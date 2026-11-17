@@ -11,7 +11,8 @@ use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use super::build::Build;
-use super::source::{GameSource, RemoteBuild};
+use super::release::Release;
+use super::source::GameSource;
 use crate::download::{Client, Progress};
 use crate::paths::Paths;
 use crate::{Error, Result, version};
@@ -33,21 +34,11 @@ pub fn installed(paths: &Paths) -> Option<Build> {
     Build::read(&current_dir(paths)).or_else(|| Build::read(&previous_dir(paths)))
 }
 
-/// The newest release with an archive for this platform; pre-releases count only when there is no other.
-pub fn latest(builds: Vec<RemoteBuild>) -> Option<RemoteBuild> {
-    let usable = builds.into_iter().filter(|b| b.asset.is_some());
-    let (stable, pre): (Vec<_>, Vec<_>) = usable.partition(|b| !b.prerelease);
-    let pick = |list: Vec<RemoteBuild>| {
-        list.into_iter().reduce(|best, b| if version::newer(&b.version, &best.version) { b } else { best })
-    };
-    pick(stable).or_else(|| pick(pre))
-}
-
-/// Whether `remote` should replace `installed`: nothing is installed, or it is another release that is not older.
-pub fn wanted(remote: &RemoteBuild, installed: Option<&Build>) -> bool {
+/// Whether `release` should replace `installed`: nothing is installed, or it is another version that is not older.
+pub fn wanted(release: &Release, installed: Option<&Build>) -> bool {
     match installed {
         None => true,
-        Some(build) => build.tag != remote.tag && !version::newer(&build.version, &remote.version),
+        Some(build) => build.version != release.version && !version::newer(&build.version, &release.version),
     }
 }
 
@@ -57,24 +48,25 @@ pub enum Check {
     /// The installed build is the newest release.
     UpToDate,
     /// A newer release to download.
-    Update(Box<RemoteBuild>),
-    /// The source has no release for this platform.
+    Update(Box<Release>),
+    /// The release server has no release for this platform yet.
     NoRelease,
 }
 
 pub fn check(source: &dyn GameSource, client: &Client, installed: Option<&Build>) -> Result<Check> {
-    Ok(match latest(source.list(client)?) {
+    Ok(match source.latest(client)? {
         None => Check::NoRelease,
-        Some(remote) if wanted(&remote, installed) => Check::Update(Box::new(remote)),
+        Some(release) if wanted(&release, installed) => Check::Update(Box::new(release)),
         Some(_) => Check::UpToDate,
     })
 }
 
-/// Downloads `remote`, checks its SHA-256 and unpacks it into `build/next`; the installed build is not touched.
+/// Downloads `release` (continuing a partial file from an earlier try), checks its SHA-256 and unpacks it into
+/// `build/next`; the installed build is not touched.
 pub fn download(
     source: &dyn GameSource,
     client: &Client,
-    remote: &RemoteBuild,
+    release: &Release,
     paths: &Paths,
     progress: Progress<'_>,
     cancel: &AtomicBool,
@@ -83,7 +75,18 @@ pub fn download(
     remove_dir(&next)?;
     fs::create_dir_all(paths.build()).map_err(|error| Error::io(&paths.build(), error))?;
     fs::create_dir_all(paths.downloads()).map_err(|error| Error::io(&paths.downloads(), error))?;
-    source.install(client, remote, &next, &paths.downloads(), progress, cancel)
+    forget_other_downloads(&paths.downloads(), &release.sha256);
+    source.install(client, release, &next, &paths.downloads(), progress, cancel)
+}
+
+/// Deletes partial and finished archives of other builds; the one for `keep` (a SHA-256) stays to be resumed.
+fn forget_other_downloads(dir: &Path, keep: &str) {
+    let Ok(entries) = fs::read_dir(dir) else { return };
+    for entry in entries.flatten() {
+        if !entry.file_name().to_string_lossy().starts_with(keep) && entry.path().is_file() {
+            let _ = fs::remove_file(entry.path());
+        }
+    }
 }
 
 /// Makes `build/next` the installed build. The old one is deleted once the swap worked, and put back if it did not.

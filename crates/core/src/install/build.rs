@@ -14,13 +14,15 @@ pub const INSTALL_FILE: &str = "install.json";
 pub struct Build {
     /// The game version, `local` when unknown.
     pub version: String,
-    /// The release tag it came from; empty for a local folder.
+    /// `stable` or `beta`; empty for a local folder.
     #[serde(default)]
-    pub tag: String,
-    /// The release asset it came from.
+    pub channel: String,
     #[serde(default)]
-    pub asset: String,
-    /// The checked SHA-256 of that asset.
+    pub released_at: String,
+    /// What changed in this release, as plain text.
+    #[serde(default)]
+    pub notes: String,
+    /// The checked SHA-256 of the archive it came from.
     #[serde(default)]
     pub sha256: Option<String>,
     /// The game folder: it holds `assets/`.

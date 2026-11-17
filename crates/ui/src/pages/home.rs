@@ -1,13 +1,14 @@
 //! Home: the name, one large Play button (Stop with the running time while the game runs), one quiet status line, and
 //! a link to the game output once the game has run. Nothing else.
 
+use castanea_launcher_core::download::rate_text;
 use eframe::egui::{self, Sense};
 
 use crate::app::{App, Page};
 use crate::game::{Update, clock};
 use crate::jobs;
 use crate::theme::{color, layout, line, radius, size, space};
-use crate::widgets::{Button, Kind};
+use crate::widgets::{self, Button, Kind};
 use crate::{probe, theme};
 
 /// The block's height for centring: name, gaps, button, progress, status and link lines.
@@ -26,12 +27,47 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui) {
         let (text, tint) = status_line(app);
         let status = ui.label(egui::RichText::new(text).size(size::SMALL).color(tint));
         let status = match &app.update {
-            Update::Failed(error) => status.on_hover_text(error),
+            Update::Failed(error) | Update::Unsupported(error) => status.on_hover_text(error),
             _ => status,
         };
         probe::mark(ui.ctx(), "home:status", status.rect);
         links(app, ui);
     });
+    whats_new_dialog(app, ui.ctx());
+}
+
+/// A dialog with the release notes of the newest build, as plain text.
+fn whats_new_dialog(app: &mut App, ctx: &egui::Context) {
+    if !app.show_notes {
+        return;
+    }
+    let Some((version, text)) = app.whats_new() else {
+        app.show_notes = false;
+        return;
+    };
+    let frame = egui::Frame::new()
+        .fill(color::RAISED)
+        .stroke(egui::Stroke::new(line::HAIRLINE, color::BORDER_STRONG))
+        .corner_radius(theme::radius(radius::M))
+        .inner_margin(egui::Margin::same(space::XL as i8));
+    let modal =
+        egui::Modal::new(egui::Id::unique("whats-new")).frame(frame).backdrop_color(color::BACKDROP).show(ctx, |ui| {
+            ui.set_width(layout::DIALOG);
+            ui.label(widgets::strong(app.tr.fill("home.whats_new_title", &[("version", &version)]), size::TITLE));
+            ui.add_space(space::M);
+            egui::ScrollArea::vertical().max_height(280.0).auto_shrink([false, true]).show(ui, |ui| {
+                widgets::wrapped(ui, widgets::muted(&text));
+            });
+            ui.add_space(space::XL);
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if Button::new(Kind::Primary, app.tr.get("common.close")).show(ui).clicked() {
+                    app.show_notes = false;
+                }
+            });
+        });
+    if modal.should_close() {
+        app.show_notes = false;
+    }
 }
 
 fn play_button(app: &mut App, ui: &mut egui::Ui) {
@@ -81,17 +117,22 @@ pub fn status_line(app: &App) -> (String, egui::Color32) {
         let fraction = jobs::get(&app.update_progress).and_then(|p| p.fraction()).unwrap_or(0.0);
         format!("{:.0}", fraction * 100.0)
     };
+    let rate = || match jobs::get(&app.update_progress).and_then(|p| p.speed) {
+        Some(speed) => format!(" · {}", rate_text(speed)),
+        None => String::new(),
+    };
     let state = match &app.update {
         Update::Idle | Update::Local => None,
         Update::Checking => Some(tr.get("home.checking").to_owned()),
         Update::UpToDate => Some(tr.get("home.up_to_date").to_owned()),
         Update::Downloading { version } => {
-            Some(tr.fill("home.downloading", &[("version", version), ("percent", &percent())]))
+            Some(tr.fill("home.downloading", &[("version", version), ("percent", &percent()), ("rate", &rate())]))
         }
         Update::Ready { version } => Some(tr.fill("home.ready", &[("version", version)])),
         Update::Applying { version } => Some(tr.fill("home.applying", &[("version", version)])),
         Update::NoRelease if build.is_none() => Some(tr.get("home.no_release").to_owned()),
         Update::NoRelease => None,
+        Update::Unsupported(_) => Some(tr.get("home.unsupported").to_owned()),
         Update::Offline if build.is_none() => Some(tr.get("home.offline_none").to_owned()),
         Update::Offline => Some(tr.get("home.offline").to_owned()),
         Update::Failed(_) => Some(tr.get("home.check_failed").to_owned()),
@@ -110,11 +151,12 @@ pub fn status_line(app: &App) -> (String, egui::Color32) {
 fn links(app: &mut App, ui: &mut egui::Ui) {
     let output = app.session.is_some();
     let retry = matches!(app.update, Update::Failed(_));
-    if !output && !retry {
+    let notes = app.whats_new().is_some();
+    if !output && !retry && !notes {
         return;
     }
     ui.add_space(space::S);
-    let labels: Vec<String> = [(output, "home.output"), (retry, "home.retry")]
+    let labels: Vec<String> = [(notes, "home.whats_new"), (output, "home.output"), (retry, "home.retry")]
         .iter()
         .filter(|(on, _)| *on)
         .map(|(_, key)| app.tr.get(key).to_owned())
@@ -129,6 +171,9 @@ fn links(app: &mut App, ui: &mut egui::Ui) {
         egui::Layout::left_to_right(egui::Align::Center),
         |ui| {
             ui.spacing_mut().item_spacing.x = space::XL;
+            if notes && Button::new(Kind::Quiet, app.tr.get("home.whats_new")).small().show(ui).clicked() {
+                app.show_notes = true;
+            }
             if output && Button::new(Kind::Quiet, app.tr.get("home.output")).small().show(ui).clicked() {
                 app.go(Page::Log);
             }

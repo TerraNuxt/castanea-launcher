@@ -6,9 +6,8 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
-use castanea_launcher_core::install::github::GithubReleases;
 use castanea_launcher_core::install::update::{self, Check};
-use castanea_launcher_core::install::{Build, RemoteBuild, local, token};
+use castanea_launcher_core::install::{Build, Platform, Release, ReleaseApi, local, notes};
 use castanea_launcher_core::launch::{self, Outcome, Running};
 use eframe::egui;
 
@@ -33,8 +32,10 @@ pub enum Update {
     Applying {
         version: String,
     },
-    /// The release source has no build for this platform.
+    /// The release server has no build yet.
     NoRelease,
+    /// There are no game builds for this operating system or processor.
+    Unsupported(String),
     /// Offline mode is on.
     Offline,
     /// The check or the download failed; the installed build stays.
@@ -85,8 +86,13 @@ impl App {
         };
     }
 
-    fn source(&self) -> GithubReleases {
-        GithubReleases::new(&self.settings.repo, token::read(&self.paths))
+    /// What the newest release changed, as plain text with its version: the one being installed, else the installed one.
+    pub fn whats_new(&self) -> Option<(String, String)> {
+        let pending =
+            matches!(self.update, Update::Downloading { .. } | Update::Ready { .. } | Update::Applying { .. });
+        let pending = self.pending_notes.clone().filter(|(_, text)| pending && !text.is_empty());
+        let installed = self.installed.as_ref().filter(|b| !b.notes.is_empty() && self.dev_folder().is_none());
+        pending.or_else(|| installed.map(|b| (b.version.clone(), b.notes.clone())))
     }
 
     /// Looks for a newer release and downloads it; offline mode and a local build folder skip it.
@@ -103,10 +109,21 @@ impl App {
             self.update = Update::Offline;
             return;
         }
+        if let Err(error) = Platform::detect() {
+            self.update = Update::Unsupported(error.to_string());
+            return;
+        }
+        let api = match ReleaseApi::from_settings(&self.settings) {
+            Ok(api) => api,
+            Err(error) => {
+                self.update = Update::Failed(error.to_string());
+                return;
+            }
+        };
         self.update = Update::Checking;
-        let (source, installed) = (self.source(), self.installed.clone());
+        let installed = self.installed.clone();
         self.jobs.spawn(ctx, move || {
-            let result = update::check(&source, &App::client(), installed.as_ref());
+            let result = update::check(&api, &api.client(), installed.as_ref());
             Done::Checked(result.map_err(|e| e.to_string()))
         });
     }
@@ -123,13 +140,21 @@ impl App {
         };
     }
 
-    fn download(&mut self, ctx: &egui::Context, remote: RemoteBuild) {
-        self.update = Update::Downloading { version: remote.version.clone() };
-        let mut progress = jobs::reporter(ctx, &self.update_progress, remote.version.clone());
-        let (source, paths) = (self.source(), self.paths.clone());
+    fn download(&mut self, ctx: &egui::Context, release: Release) {
+        let api = match ReleaseApi::from_settings(&self.settings) {
+            Ok(api) => api,
+            Err(error) => {
+                self.update = Update::Failed(error.to_string());
+                return;
+            }
+        };
+        self.update = Update::Downloading { version: release.version.clone() };
+        self.pending_notes = Some((release.version.clone(), notes::plain(&release.notes)));
+        let mut progress = jobs::reporter(ctx, &self.update_progress, release.version.clone());
+        let paths = self.paths.clone();
         let cancel = Arc::new(AtomicBool::new(false));
         self.jobs.spawn(ctx, move || {
-            let result = update::download(&source, &App::client(), &remote, &paths, &mut progress, &cancel);
+            let result = update::download(&api, &api.client(), &release, &paths, &mut progress, &cancel);
             Done::Downloaded(result.map_err(|e| e.to_string()))
         });
     }

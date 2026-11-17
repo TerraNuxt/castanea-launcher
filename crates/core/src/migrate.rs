@@ -34,6 +34,8 @@ pub fn run(paths: &Paths, settings: &mut Settings) -> Result<Option<Report>> {
     if versions.is_dir() {
         builds(paths, &versions)?;
     }
+    // The game builds no longer come from GitHub, so an old token is of no use and is not kept lying around.
+    let _ = fs::remove_file(paths.legacy_token_file());
     if installs_file.is_file() {
         fs::remove_file(&installs_file).map_err(|error| Error::io(&installs_file, error))?;
     }
@@ -94,15 +96,12 @@ fn builds(paths: &Paths, versions: &Path) -> Result<()> {
         };
         let Some(binary) = local::find_binary(&dir) else { continue };
         let text = |key: &str| old.get(key).and_then(Value::as_str).unwrap_or("").to_owned();
-        let origin =
-            |key: &str| old.pointer(&format!("/origin/{key}")).and_then(Value::as_str).unwrap_or("").to_owned();
         let build = Build {
             version: text("version"),
-            tag: origin("tag"),
-            asset: origin("asset"),
             sha256: old.get("sha256").and_then(Value::as_str).map(str::to_owned),
             root: current.clone(),
             binary: current.join(binary.file_name().unwrap_or_default()),
+            ..Build::default()
         };
         found.push((build, dir));
     }

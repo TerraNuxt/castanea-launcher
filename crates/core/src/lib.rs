@@ -17,4 +17,6 @@ pub mod version;
 pub use error::{Error, Result};
 
 #[cfg(test)]
+mod release_server;
+#[cfg(test)]
 mod test_server;

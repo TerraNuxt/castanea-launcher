@@ -38,7 +38,7 @@ this order, F5 plays, Ctrl+F searches mods, Esc closes a question or leaves the 
                           +------------------------+
                           ======------------------                2 px progress, only while downloading
                  castanea 0.2.0  ·  up to date                    12 pt muted, one line
-                              Game output                         a quiet link, once the game has run
+                       What's new   Game output                a quiet link each: the release notes in a dialog; the game output once the game has run
 ```
 
 The block sits a little above the middle of the page. The status line says one of:
@@ -46,13 +46,14 @@ The block sits a little above the middle of the page. The status line says one o
 | State | Line |
 |---|---|
 | checked, nothing newer | `castanea 0.2.0 · up to date` |
-| a newer release | `castanea 0.2.0 · update available, downloading 0.3.0 · 43 %` (Play still starts 0.2.0) |
+| a newer release | `castanea 0.2.0 · update available, downloading 0.3.0 · 43 % · 5.2 MB/s` (Play still starts 0.2.0) |
 | downloaded while the game ran | `castanea 0.2.0 · 0.3.0 is downloaded and starts next time` |
 | swapping | `castanea 0.2.0 · installing 0.3.0…` (Play is off for that moment) |
 | offline | `castanea 0.2.0 · offline`; with nothing installed `Offline. Go online once to download the game.` |
 | check failed | `castanea 0.2.0 · could not check for updates` in the danger colour, the error as tooltip, and a Try again link |
 | local build folder | `Local build 0.9.0-dev` |
-| nothing installed, no release | `No game release is published yet.` |
+| nothing installed, no release | `No game release is published yet. Check again later.` |
+| no build for this system | `There is no game build for this system yet.` (the reason as tooltip) |
 
 While the game runs the button is Stop (a secondary button: hairline outline, no fill) with the running time in a
 fixed-width slot after the label, so the label does not move as the seconds change.
@@ -139,7 +140,8 @@ a hairline under each row.
  [https://…/index.json         ] [Add] [Local file…]
  > Advanced                                       (closed by default)
    Local build folder             [Choose…] [Use releases]
-   GitHub token                   [github_pat_…   ] [Save]
+   Release server                 [https://castanea.xenoo.dev] [Save]
+   Include beta builds            (switch)
    Output lines kept              [5000]
    Settings / Data / Cache folder [Open]
 ```

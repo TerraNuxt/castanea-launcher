@@ -121,7 +121,12 @@ pub struct App {
     pub confirm: Option<Confirm>,
     pub jobs: Jobs,
     pub images: HashMap<String, ImageState>,
-    pub token_input: String,
+    /// Version and plain-text notes of the release being downloaded.
+    pub pending_notes: Option<(String, String)>,
+    /// The "What's new" dialog is open.
+    pub show_notes: bool,
+    /// The release server address being typed in Settings.
+    pub release_url_input: String,
     pub new_index: String,
     pub advanced_open: bool,
     /// Scrolls the open Advanced section into view once.
@@ -162,7 +167,9 @@ impl App {
             confirm: None,
             jobs: Jobs::default(),
             images: HashMap::new(),
-            token_input: String::new(),
+            pending_notes: None,
+            show_notes: false,
+            release_url_input: String::new(),
             new_index: String::new(),
             advanced_open: false,
             reveal_advanced: false,
@@ -180,6 +187,7 @@ impl App {
             }
             app.info(text);
         }
+        app.release_url_input = app.settings.release_url.clone();
         app.refresh_installed();
         app.reload_mods();
         app

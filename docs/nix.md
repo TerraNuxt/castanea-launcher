@@ -35,8 +35,8 @@ nix flake update castanea-launcher     # in the configuration's folder
 sudo nixos-rebuild switch --flake .#<host>
 ```
 
-## Tokens
+## Game builds
 
-`TerraNuxt/castanea-launcher` is public, so nix fetches it without a token. The launcher itself needs a GitHub token
-only while the game repo `TerraNuxt/castanea` is private: `CASTANEA_GITHUB_TOKEN`, or Settings → Advanced → GitHub
-token. Without one, the update check of a private game repo reports HTTP 404 and the installed build stays in use.
+The game repo is private, so the launcher does not read GitHub: it gets the game from the release server
+(`https://castanea.xenoo.dev`, see [release-api.md](release-api.md)). No token is needed; Settings → Advanced → Release
+server or `CASTANEA_RELEASE_URL` point it somewhere else.

@@ -57,7 +57,7 @@ fn an_old_home_keeps_the_last_profile_and_the_newest_build() {
     assert!(instances.join("default/saves/home").is_dir(), "other game folders are never touched");
 
     let build = update::installed(&paths).unwrap();
-    assert_eq!((build.version.as_str(), build.tag.as_str()), ("0.10.0", "v0.10.0"));
+    assert_eq!(build.version, "0.10.0");
     assert_eq!(build.sha256, Some("a".repeat(64)));
     assert!(!versions.exists() && !paths.config.join("installs.json").exists());
     assert!(!paths.config.join("profiles.json").exists() && paths.config.join("profiles.json.old").is_file());

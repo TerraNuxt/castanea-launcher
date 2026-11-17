@@ -1,65 +1,25 @@
-//! `GameSource`: something that lists game releases and installs one into a folder.
+//! `GameSource`: something that offers the newest game release and installs one into a folder.
 
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 
 use super::build::Build;
+use super::release::Release;
 use crate::Result;
 use crate::download::{Client, Progress};
 
-/// One release a source offers.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RemoteBuild {
-    /// The release tag.
-    pub tag: String,
-    pub version: String,
-    pub title: String,
-    pub published: String,
-    pub prerelease: bool,
-    /// The archive for this platform, or `None` when the release has none.
-    pub asset: Option<Asset>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Asset {
-    pub name: String,
-    /// The URL to download without a token.
-    pub download_url: String,
-    /// The API URL that serves the bytes with a token (`Accept: application/octet-stream`).
-    pub api_url: String,
-    pub size: u64,
-    /// From GitHub's `digest` field; a `SHA256SUMS` asset is the fallback.
-    pub sha256: Option<String>,
-    pub sums_url: Option<(String, String)>,
-}
-
 pub trait GameSource: Send + Sync {
-    fn list(&self, client: &Client) -> Result<Vec<RemoteBuild>>;
-    /// Downloads `build`, checks its SHA-256 and unpacks it into `dest` (which must not exist yet).
+    /// The newest release for this platform, `None` when nothing is published yet.
+    fn latest(&self, client: &Client) -> Result<Option<Release>>;
+    /// Downloads `release` (resuming a partial file), checks its SHA-256 and unpacks it into `dest` (which must not
+    /// exist yet).
     fn install(
         &self,
         client: &Client,
-        build: &RemoteBuild,
+        release: &Release,
         dest: &Path,
         downloads_dir: &Path,
         progress: Progress<'_>,
         cancel: &AtomicBool,
     ) -> Result<Build>;
-}
-
-/// The name part a release asset must carry for this platform.
-pub fn platform_target() -> &'static str {
-    if cfg!(windows) { "x86_64-pc-windows-msvc" } else { "x86_64-unknown-linux-gnu" }
-}
-
-/// Whether an asset name is a game archive for `target`: `castanea-<version>-<target>.zip`, or the short
-/// forms `...-windows.zip` and `...-linux.zip`.
-pub fn asset_fits(name: &str, target: &str) -> bool {
-    let lower = name.to_ascii_lowercase();
-    let Some(stem) = lower.strip_suffix(".zip") else { return false };
-    if !stem.starts_with("castanea") {
-        return false;
-    }
-    let os = if target.contains("windows") { "windows" } else { "linux" };
-    stem.ends_with(target) || stem.ends_with(&format!("-{os}")) || stem.ends_with(&format!("-{os}-x86_64"))
 }

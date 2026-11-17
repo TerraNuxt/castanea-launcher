@@ -39,9 +39,35 @@ impl UrlPolicy {
 /// Progress of one download: bytes so far and the total when known.
 pub type Progress<'a> = &'a mut dyn FnMut(u64, Option<u64>);
 
+/// How many times and how long to wait when a server answers 429 or 5xx, or the connection drops.
+#[derive(Clone, Copy, Debug)]
+pub struct Retry {
+    /// Failed tries in a row before giving up.
+    pub tries: u32,
+    /// The first wait; it doubles on each failure.
+    pub base: Duration,
+    /// No wait is longer, `Retry-After` included.
+    pub max_wait: Duration,
+}
+
+impl Default for Retry {
+    fn default() -> Self {
+        Self { tries: 5, base: Duration::from_secs(1), max_wait: Duration::from_secs(60) }
+    }
+}
+
+impl Retry {
+    /// The wait after failure number `failure` (1 is the first): the server's `Retry-After`, else doubling from `base`.
+    pub fn wait(&self, failure: u32, retry_after: Option<Duration>) -> Duration {
+        let doubled = self.base.saturating_mul(1u32 << failure.saturating_sub(1).min(16));
+        retry_after.unwrap_or(doubled).min(self.max_wait)
+    }
+}
+
 pub struct Client {
     agent: ureq::Agent,
     pub policy: UrlPolicy,
+    pub retry: Retry,
 }
 
 /// One response: status, a few headers and the body as a reader.
@@ -49,6 +75,9 @@ pub struct Fetched {
     pub status: u16,
     pub etag: Option<String>,
     pub length: Option<u64>,
+    pub content_range: Option<String>,
+    /// `Retry-After` in seconds (the date form is not used by the release server).
+    pub retry_after: Option<Duration>,
     body: ureq::Body,
 }
 
@@ -62,7 +91,7 @@ impl Client {
             .timeout_recv_response(Some(Duration::from_secs(30)))
             .timeout_recv_body(Some(Duration::from_secs(60)))
             .build();
-        Self { agent: config.into(), policy }
+        Self { agent: config.into(), policy, retry: Retry::default() }
     }
 
     /// A GET with extra headers; any status comes back, the caller decides.
@@ -78,8 +107,35 @@ impl Client {
             status: response.status().as_u16(),
             etag: header("etag"),
             length: header("content-length").and_then(|v| v.parse().ok()),
+            content_range: header("content-range"),
+            retry_after: header("retry-after").and_then(|v| v.trim().parse().ok()).map(Duration::from_secs),
             body: response.into_body(),
         })
+    }
+
+    /// Like `get`, but waits and tries again on 429 and 5xx (honouring `Retry-After`); the last answer comes back.
+    pub fn get_retry(&self, url: &str, headers: &[(&str, String)], cancel: &AtomicBool) -> Result<Fetched> {
+        let mut failures = 0;
+        loop {
+            let fetched = self.get(url, headers)?;
+            if !is_transient(fetched.status) || failures >= self.retry.tries {
+                return Ok(fetched);
+            }
+            failures += 1;
+            self.pause(self.retry.wait(failures, fetched.retry_after), url, cancel)?;
+        }
+    }
+
+    /// Sleeps in short steps so a cancel is noticed.
+    pub(crate) fn pause(&self, wait: Duration, url: &str, cancel: &AtomicBool) -> Result<()> {
+        let end = std::time::Instant::now() + wait;
+        while let Some(left) = end.checked_duration_since(std::time::Instant::now()) {
+            if cancel.load(Ordering::Relaxed) {
+                return Err(Error::invalid(format!("{url}: cancelled")));
+            }
+            std::thread::sleep(left.min(Duration::from_millis(100)));
+        }
+        Ok(())
     }
 
     /// A small document, such as an index or a release list, as bytes. Status other than 200 is an error.
@@ -133,7 +189,16 @@ impl Client {
     }
 }
 
+/// A status worth trying again: rate limited or a server error.
+pub fn is_transient(status: u16) -> bool {
+    status == 429 || (500..600).contains(&status)
+}
+
 impl Fetched {
+    pub fn into_reader(self) -> impl Read {
+        self.body.into_reader()
+    }
+
     pub fn read_limited(self, url: &str, limit: u64) -> Result<Vec<u8>> {
         let mut bytes = Vec::new();
         self.body.into_reader().take(limit + 1).read_to_end(&mut bytes).map_err(|error| Error::http(url, error))?;
@@ -217,6 +282,10 @@ pub fn sha256_file(path: &Path) -> Result<String> {
     std::io::copy(&mut file, &mut hasher).map_err(|error| Error::io(path, error))?;
     Ok(hex(&hasher.finalize()))
 }
+
+mod resume;
+mod speed;
+pub use speed::{Speed, rate_text};
 
 #[cfg(test)]
 mod tests;

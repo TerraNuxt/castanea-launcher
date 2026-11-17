@@ -40,7 +40,7 @@ pub fn install_build(paths: &Paths, script: &str) {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&binary, fs::Permissions::from_mode(0o755)).unwrap();
     }
-    let build = Build { version: "0.2.0".into(), tag: "v0.2.0".into(), root, binary, ..Build::default() };
+    let build = Build { version: "0.2.0".into(), root, binary, ..Build::default() };
     build.write().unwrap();
 }
 
@@ -127,7 +127,10 @@ impl Harness {
             }),
             ("home-update", |app| {
                 app.update = Update::Downloading { version: "0.3.0".into() };
-                jobs::set(&app.update_progress, Some(Progress { label: "0.3.0".into(), done: 43, total: Some(100) }));
+                jobs::set(
+                    &app.update_progress,
+                    Some(Progress { label: "0.3.0".into(), done: 43, total: Some(100), speed: Some(5_200_000) }),
+                );
                 app.go(Page::Home);
             }),
             ("home-failed", |app| {
@@ -258,6 +261,7 @@ fn the_status_line_reads_every_update_state_in_both_languages() {
             Update::Ready { version: "0.3.0".into() },
             Update::Applying { version: "0.3.0".into() },
             Update::NoRelease,
+            Update::Unsupported("no build".into()),
             Update::Offline,
             Update::Failed("x".into()),
         ];
@@ -404,4 +408,23 @@ fn every_string_key_exists_and_every_key_is_used() {
     let mut unused: Vec<&String> = en.keys().filter(|k| !used.iter().any(|(_, u)| u == *k)).collect();
     unused.sort();
     assert!(unused.is_empty(), "keys no code uses: {unused:?}");
+}
+
+#[test]
+fn whats_new_shows_the_notes_of_the_new_or_the_installed_build_and_the_download_speed() {
+    let mut h = Harness::new("en");
+    assert!(h.app.whats_new().is_none(), "no notes, no link");
+    h.app.installed.as_mut().unwrap().notes = "• Faster".into();
+    assert_eq!(h.app.whats_new(), Some(("0.2.0".into(), "• Faster".into())));
+    h.app.pending_notes = Some(("0.3.0".into(), "• Newer".into()));
+    h.app.update = Update::Downloading { version: "0.3.0".into() };
+    assert_eq!(h.app.whats_new(), Some(("0.3.0".into(), "• Newer".into())));
+    let progress = Progress { label: "0.3.0".into(), done: 43, total: Some(100), speed: Some(5_200_000) };
+    jobs::set(&h.app.update_progress, Some(progress));
+    let (text, _) = crate::pages::home::status_line(&h.app);
+    assert!(text.contains("43 %") && text.contains("5.2 MB/s"), "{text}");
+    h.app.show_notes = true;
+    h.go(Page::Home);
+    h.draw();
+    assert!(h.app.show_notes, "the dialog stays open until it is closed");
 }

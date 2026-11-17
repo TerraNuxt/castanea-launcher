@@ -46,13 +46,13 @@ anything the atlas cannot spell. Details and the reasons are in [ui-design.md](u
 ```
 crates/core   castanea-launcher-core: no UI, no window, everything testable
   paths       the launcher's folders per platform (config, data, cache), overridable for tests and portable use
-  settings    launcher.json: language, offline mode, index URLs, the game's start options, the local build folder
+  settings    launcher.json: language, offline mode, index URLs, release server and beta switch, the game's start options, the local build folder
   migrate     moves an old home (profiles, side-by-side versions) to the one game folder and the one build, once
-  install     the installed build, GameSource (GitHub releases), local build folders, the update (check, download, swap)
+  install     the installed build, GameSource and the release API client, local build folders, the update (check, download, swap)
   launch      the launch plan (program, args, working dir, env) as pure data, the running game, its log and crash check
   mods        mod.json reading, the installed mods, enable/disable, import, dependency and version checks
   index       the ModIndex trait, the index format, the static-file and HTTP clients, the cache, updates
-  download    HTTPS download with size limit, SHA-256 check, progress and atomic rename
+  download    HTTPS download with size limit, SHA-256 check, progress and speed, retry with backoff, resumable (Range) downloads
 crates/ui     castanea-launcher: the eframe window on top of core; strings from lang/*.json
 ```
 
@@ -63,7 +63,7 @@ over a channel. `ui/game.rs` holds the update state machine and the running game
 
 | | Linux | Windows |
 |---|---|---|
-| config (`launcher.json`, `github-token`) | `$XDG_CONFIG_HOME/castanea-launcher` or `~/.config/castanea-launcher` | `%APPDATA%\castanea-launcher` |
+| config (`launcher.json`) | `$XDG_CONFIG_HOME/castanea-launcher` or `~/.config/castanea-launcher` | `%APPDATA%\castanea-launcher` |
 | data (the build, the game folder, window state) | `$XDG_DATA_HOME/castanea-launcher` or `~/.local/share/castanea-launcher` | `%LOCALAPPDATA%\castanea-launcher` |
 | cache (index, downloads, images) | `$XDG_CACHE_HOME/castanea-launcher` or `~/.cache/castanea-launcher` | `%LOCALAPPDATA%\castanea-launcher\cache` |
 
@@ -72,7 +72,7 @@ over a channel. `ui/game.rs` holds the update state machine and the running game
 ```
 data/
   build/
-    current/               the installed release: castanea[.exe], assets/, install.json (version, tag, asset, sha256)
+    current/               the installed release: castanea[.exe], assets/, install.json (version, channel, released_at, notes, sha256)
     next/                  only during an update: the new build, checked and unpacked
     previous/              only during the swap: the old build, put back if the swap fails
   game/                    the game's working directory
@@ -82,10 +82,10 @@ data/
     logs/latest.log        the last run's output; logs/<stamp>.log for older runs (the last 10 kept)
   window/                  eframe's window state (size, position)
 config/
-  launcher.json github-token
+  launcher.json
 cache/
   index/<sha256 of URL>.json and .meta   the last good copy of each index and its ETag
-  downloads/<sha256>.zip                 a download in progress
+  downloads/<sha256>.part                a download in progress, kept to be resumed
 ```
 
 The game reads `assets/` and `mods/` from its working directory (`docs/modding/modding.md` of the game), so the game
@@ -93,31 +93,42 @@ folder links the build's assets in. The link points at `build/current`, so it st
 
 ## The game build
 
-- `GameSource` lists releases and installs one into a folder. `GithubReleases` reads `TerraNuxt/castanea` (the `repo`
-  key of `launcher.json` can name another `owner/repo`).
-- A release asset is a zip named `castanea-<version>-<target>.zip` with the binary and `assets/` at the top (or in one
-  top folder). Its SHA-256 comes from GitHub's asset `digest` field, or from a `SHA256SUMS` asset of the release. A build
-  without either is refused.
-- **Newest**: the release with the highest version (semver) that has an archive for this platform; drafts are skipped,
-  pre-releases count only when there is no other release.
-- **At start** the launcher checks the source once (not in offline mode, not with a local build folder). A release
-  that is another tag and not older than the installed one is downloaded with progress, checked against its SHA-256,
-  and unpacked into `build/next`. The installed build is untouched until then, and the game can still be played.
+- `GameSource` offers the newest release and installs one into a folder; `ReleaseApi` is the one real implementation. The
+  private game repo is no longer read: builds come from the release server (`https://castanea.xenoo.dev`, the
+  `release_url` key of `launcher.json`, or `CASTANEA_RELEASE_URL`). The contract, the error handling and the proposed
+  changes are in [release-api.md](release-api.md).
+- The launcher asks for its own platform (`linux-x86_64` or `windows-x86_64`, from the OS and processor it runs on; on
+  another system the home page says there is no build yet) and the channel `stable`, plus `beta` when Settings →
+  Advanced → Include beta builds is on. The newer version of the two wins.
+- A release is a zip with `castanea` (`castanea.exe`) and `assets/` at its root, plus optionally `version.txt`. The API
+  gives its size and SHA-256; a zip without the executable or `assets/` is refused.
+- **Newest**: the release the server calls latest. It is installed when its version differs from the installed one and
+  is not older (never a downgrade; the same version is a no-op).
+- **At start** the launcher asks once (not in offline mode, not with a local build folder). A newer release is downloaded
+  with progress (bytes, percent and speed), checked against its SHA-256, and unpacked into `build/next`. The installed
+  build is untouched until then, and the game can still be played. "What's new" on the home page shows the release
+  notes (markdown reduced to plain text); they are kept in `install.json`, so they are there offline too.
+- **Resumable download**: the archive is written to `cache/downloads/<sha256>.part`. After a network drop the launcher
+  waits (backoff, `Retry-After`) and continues with `Range: bytes=<have>-` and `If-Range: "<sha256>"`; the same happens
+  after a restart, because the partial file stays. The server's `ETag` must be the SHA-256 of the release, so the
+  bytes of a resumed file are from one build; a server that ignores `Range` (answers 200) restarts the file. The
+  finished file is hashed as a whole; a mismatch deletes it. Partial files of other builds are deleted when a new
+  download starts.
 - **The swap** (`update::activate`): `current` moves to `previous`, `next` becomes `current`, `previous` is deleted.
   If moving `next` fails, `previous` is put back. If the launcher stops half way, `previous` is found and used at the
   next start. The swap waits while the game runs (Windows cannot move a folder with a running program in it); it
   happens when the game ends.
-- **A failed download** (network, size, SHA-256 mismatch, a zip without the game) deletes what it wrote; the installed
-  build stays and the home page says the check failed, with Try again. Old builds are never kept or offered as a choice.
+- **A failed download** (network, size, SHA-256 mismatch, a zip without the game) deletes what it wrote, except a
+  partial file that can be resumed; the installed build stays and the home page says the check failed, with Try again.
+  Old builds are never kept or offered as a choice.
 - **Offline** (offline mode, or no network): no check; the installed build is used. With nothing installed, Play is
   off and the home page says to go online once.
 - **A local build folder** (Settings → Advanced, `--game-dir DIR` or `CASTANEA_GAME_DIR` for one run) is for people who
   build the game from source: a checkout (`target/release/castanea` and `assets/`) or a build folder is run in place,
   never copied or changed, and there are no updates while it is set.
-- A private game repo needs a token: `CASTANEA_GITHUB_TOKEN` or `GITHUB_TOKEN`, or the file `config/github-token`
-  (Settings → Advanced, mode 0600 on Linux). The token is sent only to `api.github.com` and GitHub's download hosts,
-  never logged.
-- The version is the release tag, or a `version.txt` next to the binary of a local build, or `local`.
+- Plain `http://` is accepted for the release server only on the loopback (tests). No token is needed or stored; the
+  `github-token` file of older launchers is deleted at start.
+- The version is the release's `version`, or a `version.txt` next to the binary of a local build, or `local`.
 
 ## Old homes
 
@@ -164,7 +175,7 @@ then the user enables it. Updates: an installed mod whose id is in the index wit
 ## Security model
 
 - Downloads use HTTPS only. Plain `http://` is refused, except to `127.0.0.1` and `localhost` when a test asks for it.
-- Every download has a SHA-256 from a trusted place (the index, GitHub's digest or `SHA256SUMS`) and a size limit; a
+- Every download has a SHA-256 from a trusted place (the index, or the release API) and a size limit; a
   mismatch deletes the file and keeps the installed build. Signatures (Ed25519 over the index, field `signature`) are
   planned: the format has room for them, the client does not check them yet.
 - The launcher never runs downloaded code except the game binary, and it never runs anything from a mod. Mods are
@@ -173,11 +184,11 @@ then the user enables it. Updates: an installed mod whose id is in the index wit
   compiled into the game).
 - A new mod lands disabled. Enabling shows what it declares: its side, whether it carries Wasm code, its dependencies,
   aliases and file count.
-- Tokens are read from the environment or a private file, never stored in `launcher.json` or the log.
+- No secret is stored: the release API needs no token.
 
 ## Open decisions for the user
 
-- Release asset naming and contents (proposed above), and whether the game should print `--version` or ship `version.txt`.
+- Whether the game should print `--version` or ship `version.txt`.
 - Whether `mod.json` should get a `game` key (a version range) so the range does not depend on the index.
 - Where the public index lives (a file in a repo, the backend, a CDN) and who signs it.
 - Whether the launcher should update itself.

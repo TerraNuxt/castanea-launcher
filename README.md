@@ -19,8 +19,10 @@ newest release (checked, downloaded and verified at start), starts it, and is a 
 - **Play**: the name, one Play button (F5) and one status line: the installed version and whether it is up to date,
   an update downloading with its percentage, or offline. While the game runs the button is Stop with the running time.
   There are no profiles and no version choice: one game install, one game folder, always the newest release.
-- **Updates**: at start the launcher asks the GitHub releases of `TerraNuxt/castanea` for the newest build, downloads
-  it, checks its SHA-256 and swaps it in; a download that fails the check is thrown away and the installed build stays.
+- **Updates**: at start the launcher asks the release server (`https://castanea.xenoo.dev`, [contract](docs/release-api.md))
+  for the newest build for this platform (`stable`, or also `beta` with Settings → Advanced → Include beta builds), downloads
+  it (a dropped connection or a restart continues the partial file), checks its SHA-256 and swaps it in; a download
+  that fails the check is thrown away and the installed build stays. "What's new" shows the release notes.
   Offline, the installed build is used.
 - **Mods → Installed**: the mods of the game folder from `mod.json`: switch on and off, remove, update, import a zip
   or folder, open the folder; missing or disabled dependencies, duplicate ids, cycles and game-version mismatches are
@@ -31,7 +33,7 @@ newest release (checked, downloaded and verified at start), starts it, and is a 
   in `crash/`) is shown with its report.
 - **Settings**: language, offline mode; the game's player name, relay server (`backend_url`), graphics backend
   (`CASTANEA_BACKEND=vulkan|wgpu`), window size, extra arguments and environment; mod indexes; under Advanced a local
-  build folder for people who build the game from source, a GitHub token for a private game repo, and the folders.
+  build folder for people who build the game from source, the release server address, beta builds, and the folders.
 - English and German (`crates/ui/lang/*.json`), a matte dark theme, keyboard shortcuts (Ctrl+1…5, F5, Ctrl+F, Tab,
   Enter, Esc), screen reader names for every control (AccessKit), the system window frame, window size and position
   remembered, from 1000x640 up.
@@ -55,7 +57,7 @@ xkbcommon); `tools/shell.nix` has them for NixOS. On Windows, the MSVC toolchain
 
 `CASTANEA_LAUNCHER_HOME=<dir>` keeps everything below one folder (portable mode). `--game-dir <dir>` or
 `CASTANEA_GAME_DIR=<dir>` runs a local build folder (a checkout with `target/release/castanea`) instead of the newest
-release, for one run. `CASTANEA_GITHUB_TOKEN` gives the token for a private game repo.
+release, for one run. `CASTANEA_RELEASE_URL=<url>` points the launcher at another release server (staging, tests).
 
 ## Layout
 

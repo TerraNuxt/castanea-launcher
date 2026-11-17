@@ -4,6 +4,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};
 
+use castanea_launcher_core::download::Speed;
 use castanea_launcher_core::index::Index;
 use castanea_launcher_core::install::Build;
 use castanea_launcher_core::install::update::Check;
@@ -36,6 +37,8 @@ pub struct Progress {
     pub label: String,
     pub done: u64,
     pub total: Option<u64>,
+    /// Bytes per second, once known.
+    pub speed: Option<u64>,
 }
 
 impl Progress {
@@ -86,9 +89,10 @@ impl Jobs {
 pub fn reporter(ctx: &egui::Context, slot: &Slot, label: String) -> impl FnMut(u64, Option<u64>) + Send + 'static {
     let slot = slot.clone();
     let ctx = ctx.clone();
-    set(&slot, Some(Progress { label: label.clone(), done: 0, total: None }));
+    set(&slot, Some(Progress { label: label.clone(), ..Progress::default() }));
+    let mut meter = Speed::default();
     move |done, total| {
-        set(&slot, Some(Progress { label: label.clone(), done, total }));
+        set(&slot, Some(Progress { label: label.clone(), done, total, speed: meter.sample(done) }));
         ctx.request_repaint();
     }
 }

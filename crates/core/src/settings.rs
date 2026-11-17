@@ -8,7 +8,8 @@ use crate::Result;
 use crate::json_file;
 use crate::paths::Paths;
 
-pub const DEFAULT_REPO: &str = "TerraNuxt/castanea";
+/// The release server (docs/release-api.md).
+pub const DEFAULT_RELEASE_URL: &str = "https://castanea.xenoo.dev";
 
 /// The game's renderer, through `CASTANEA_BACKEND` (docs/dev/wgpu-backend.md of the game).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,8 +61,10 @@ pub struct Settings {
     pub indexes: Vec<String>,
     /// Lines of game output the Output page keeps.
     pub log_lines: usize,
-    /// The GitHub repository whose newest release is the game, `owner/name`.
-    pub repo: String,
+    /// The release server the game builds come from; `CASTANEA_RELEASE_URL` overrides it.
+    pub release_url: String,
+    /// Also offer `beta` builds, not only `stable` ones.
+    pub beta: bool,
     pub game: GameOptions,
     /// For people building the game from source: run this folder in place instead of the newest release.
     pub dev_build: Option<PathBuf>,
@@ -74,7 +77,8 @@ impl Default for Settings {
             offline: false,
             indexes: Vec::new(),
             log_lines: 5000,
-            repo: DEFAULT_REPO.to_owned(),
+            release_url: DEFAULT_RELEASE_URL.to_owned(),
+            beta: false,
             game: GameOptions::default(),
             dev_build: None,
         }
@@ -96,11 +100,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn defaults_use_the_game_repo_and_round_trip() {
+    fn defaults_use_the_release_server_and_round_trip() {
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::portable(dir.path());
         let mut settings = Settings::load(&paths).unwrap();
-        assert_eq!(settings.repo, DEFAULT_REPO);
+        assert_eq!(settings.release_url, DEFAULT_RELEASE_URL);
+        assert!(!settings.beta);
+        settings.beta = true;
         settings.language = "de".to_owned();
         settings.game.graphics = Graphics::Wgpu;
         settings.game.env.push(("RUST_LOG".to_owned(), "info".to_owned()));
@@ -116,6 +122,6 @@ mod tests {
         let settings: Settings = serde_json::from_str(old).unwrap();
         assert!(settings.offline);
         assert_eq!(settings.log_lines, 5000);
-        assert_eq!(settings.repo, DEFAULT_REPO);
+        assert_eq!(settings.release_url, DEFAULT_RELEASE_URL, "the old `repo` key is ignored");
     }
 }

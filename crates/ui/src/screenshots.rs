@@ -44,7 +44,7 @@ fn language(app: &mut App, code: &str) {
 
 fn downloading(app: &mut App) {
     app.update = Update::Downloading { version: "0.3.0".to_owned() };
-    let progress = Progress { label: "0.3.0".to_owned(), done: 43, total: Some(100) };
+    let progress = Progress { label: "0.3.0".to_owned(), done: 43, total: Some(100), speed: Some(5_200_000) };
     jobs::set(&app.update_progress, Some(progress));
 }
 

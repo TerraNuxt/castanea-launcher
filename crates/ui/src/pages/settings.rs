@@ -1,14 +1,14 @@
 //! Settings in one column: General, Game (what used to be per profile), Mod indexes, and Advanced (closed by
-//! default: a local build folder for people who build the game, the GitHub token, log length, the launcher's folders).
+//! default: a local build folder for people who build the game, the release server and beta builds, log length, the launcher's folders).
 
-use castanea_launcher_core::install::token;
-use castanea_launcher_core::settings::Graphics;
-use eframe::egui::{self, RichText};
+use castanea_launcher_core::install::{Platform, ReleaseApi};
+use castanea_launcher_core::settings::{DEFAULT_RELEASE_URL, Graphics};
+use eframe::egui;
 
 use crate::app::{App, open_or_note};
 use crate::game::Update;
 use crate::i18n::LANGUAGES;
-use crate::theme::{color, font, layout, size, space};
+use crate::theme::{layout, space};
 use crate::widgets::{self, Button, Kind, icon_button, setting_row};
 use crate::{icons, probe};
 
@@ -226,35 +226,7 @@ fn advanced(app: &mut App, ui: &mut egui::Ui) {
             }
         });
     });
-    let origin = match token::origin(&app.paths) {
-        Some(origin) => app.tr.fill("settings.token_from", &[("origin", &origin)]),
-        None => app.tr.get("settings.token_hint").to_owned(),
-    };
-    setting_row(ui, app.tr.get("settings.token").to_owned(), Some(&origin), |ui| {
-        ui.horizontal(|ui| {
-            let field = egui::TextEdit::singleline(&mut app.token_input)
-                .password(true)
-                .hint_text(RichText::new("github_pat_…").color(color::TEXT_MUTED))
-                .desired_width(layout::FIELD - layout::LABEL / 2.0)
-                .min_size(egui::vec2(0.0, layout::CONTROL))
-                .align(egui::Align2::LEFT_CENTER)
-                .margin(egui::Margin::symmetric(space::S as i8, 0))
-                .font(font::regular(size::BODY));
-            ui.add(field);
-            if Button::new(Kind::Secondary, app.tr.get("common.save")).show(ui).clicked() {
-                let result = token::save(&app.paths, &app.token_input);
-                app.token_input.clear();
-                match result {
-                    Ok(()) => {
-                        let text = app.tr.get("settings.token_saved").to_owned();
-                        app.info(text);
-                        app.check_updates(ui.ctx());
-                    }
-                    Err(error) => app.error(error.to_string()),
-                }
-            }
-        });
-    });
+    release_server(app, ui);
     setting_row(ui, app.tr.get("settings.log_lines").to_owned(), None, |ui| {
         let mut lines = app.settings.log_lines;
         if ui.add(egui::DragValue::new(&mut lines).range(100..=100_000)).changed() {
@@ -284,4 +256,38 @@ fn set_dev_build(app: &mut App, ctx: &egui::Context) {
     app.update = Update::Idle;
     app.check_updates(ctx);
     app.reload_mods();
+}
+
+/// The release server address and the beta switch.
+fn release_server(app: &mut App, ui: &mut egui::Ui) {
+    let hint = app.tr.get("settings.release_url_hint").to_owned();
+    setting_row(ui, app.tr.get("settings.release_url").to_owned(), Some(&hint), |ui| {
+        ui.horizontal(|ui| {
+            let width = layout::FIELD - layout::LABEL / 2.0;
+            widgets::text_field(ui, &mut app.release_url_input, DEFAULT_RELEASE_URL, width);
+            if Button::new(Kind::Secondary, app.tr.get("common.save")).show(ui).clicked() {
+                let url = app.release_url_input.trim().to_owned();
+                match ReleaseApi::new(&url, Platform::LinuxX86_64, false) {
+                    Ok(_) => {
+                        app.settings.release_url = if url.is_empty() { DEFAULT_RELEASE_URL.to_owned() } else { url };
+                        app.release_url_input = app.settings.release_url.clone();
+                        app.save_settings();
+                        app.update = Update::Idle;
+                        app.check_updates(ui.ctx());
+                    }
+                    Err(error) => app.error(error.to_string()),
+                }
+            }
+        });
+    });
+    let hint = app.tr.get("settings.beta_hint").to_owned();
+    setting_row(ui, app.tr.get("settings.beta").to_owned(), Some(&hint), |ui| {
+        let mut beta = app.settings.beta;
+        if widgets::switch_named(ui, &mut beta, app.tr.get("settings.beta")).changed() {
+            app.settings.beta = beta;
+            app.save_settings();
+            app.update = Update::Idle;
+            app.check_updates(ui.ctx());
+        }
+    });
 }

@@ -52,7 +52,8 @@ impl Paths {
         self.config.join("launcher.json")
     }
 
-    pub fn token_file(&self) -> PathBuf {
+    /// The GitHub token file of old launchers; it is deleted at start.
+    pub fn legacy_token_file(&self) -> PathBuf {
         self.config.join("github-token")
     }
 

@@ -13,7 +13,7 @@ CI runs clippy, the tests and a release build on `windows-latest`.
 | Updating the build | the swap of `build\next` and `build\current` waits until the game has ended (Windows cannot move a folder with a running program in it); a rename that a virus scanner blocks is tried again 5 times |
 | Starting the game | `CREATE_NO_WINDOW`, so no console window flashes; output is still captured |
 | Game binary | `castanea.exe` |
-| Release asset | `castanea-<version>-x86_64-pc-windows-msvc.zip` (or `...-windows.zip`) |
+| Release | platform `windows-x86_64` of the release API; the zip holds `castanea.exe` and `assets` |
 | System language | `LANG` if set, else `HKCU\Control Panel\International\LocaleName` |
 | Renderer | wgpu picks DX12, then Vulkan, then GL |
 | Window frame | the system frame (snapping, shadow and resizing are Windows' own) |
@@ -25,7 +25,7 @@ Please try these on a Windows PC and report what fails:
 
 1. `cargo run --release -p castanea-launcher` opens the window with no console behind it; resize, move, snap it to a
    screen edge and close it, start again: size and position are kept (`%LOCALAPPDATA%\castanea-launcher\window`).
-2. A first start online: the status line says it downloads the newest release with a percentage, then `up to date`;
+2. A first start online: the status line says it downloads the newest release with a percentage and the speed, then `up to date`;
    Play starts the game, the Game output page shows its output, closing the game shows "Ended normally".
    `%LOCALAPPDATA%\castanea-launcher\data\game\assets` is a junction (`dir /AL`) to `data\build\current\assets`.
 3. An update while the game runs: start the game, publish (or fake with a local folder of releases) a newer release,
@@ -40,7 +40,7 @@ Please try these on a Windows PC and report what fails:
 7. Settings → Advanced → Local build folder: pick a castanea checkout with `target\release\castanea.exe` built; the
    status line says `Local build …`, Play starts it in place; Use releases switches back. The same with
    `castanea-launcher.exe --game-dir C:\path\to\checkout`.
-8. Settings → Advanced → GitHub token while the game repo is private: the update check finds the releases.
+8. Settings → Advanced → Release server and Include beta builds: the default is `https://castanea.xenoo.dev`; with beta on, a newer beta build is downloaded. An `http://` address (other than the loopback) is refused. Cut the network in the middle of a download and restore it: the download continues from where it stopped (the status percentage does not start at 0), also after closing and starting the launcher. "What's new" shows the release notes.
 9. Text input: type in the search field and the settings fields, use an IME (for example Japanese), paste with Ctrl+V.
 10. The file dialogs (import, local build folder, local index file) open the native Windows dialogs.
 11. Screen readers: Narrator reads the sidebar items (as tabs), the Play/Stop button with the running time, the icon
