@@ -4,7 +4,7 @@
 set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 HOST=${LAUNCHER_REMOTE:-xenoo}
-rsync -a --delete --exclude /target --exclude /.git --exclude '/docs/screenshots/*.tmp' "$ROOT/" "$HOST:castanea-launcher-build/"
+rsync -a --delete --exclude /target --exclude /.git --exclude /.winck --exclude '/docs/screenshots/*.tmp' "$ROOT/" "$HOST:castanea-launcher-build/"
 quoted=
 for arg in "$@"; do
     quoted="$quoted '$(printf '%s' "$arg" | sed "s/'/'\\\\''/g")'"

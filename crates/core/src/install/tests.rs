@@ -16,7 +16,8 @@ const LINUX: &str = "x86_64-unknown-linux-gnu";
 
 fn game_zip(dir: &Path) -> Vec<u8> {
     let zip = dir.join("game.zip");
-    write_zip(&zip, &[("castanea-0.2.0/castanea", b"#!/bin/sh\n"), ("castanea-0.2.0/assets/engine/a.json", b"{}")]);
+    let binary = format!("castanea-0.2.0/{BINARY}");
+    write_zip(&zip, &[(binary.as_str(), b"#!/bin/sh\n"), ("castanea-0.2.0/assets/engine/a.json", b"{}")]);
     fs::read(zip).unwrap()
 }
 
