@@ -1,0 +1,85 @@
+{
+  "format": 1,
+  "name": "castanea example index",
+  "updated": "2026-11-17T12:00:00Z",
+  "news": [
+    {
+      "title": "Mod browser preview",
+      "date": "2026-11-17",
+      "body": "The launcher can now browse, install and update mods from an index.",
+      "url": "https://github.com/TerraNuxt/castanea-launcher"
+    }
+  ],
+  "mods": [
+    {
+      "id": "amber",
+      "name": "Amber",
+      "summary": "An amber block and its ore, with a small chat command.",
+      "description": "The example mod of the game: data files for an amber block, item and recipe.\nCopy it to see how a data mod is laid out.",
+      "authors": ["Lilly"],
+      "license": "MIT",
+      "tags": ["blocks", "example"],
+      "homepage": "https://github.com/TerraNuxt/castanea/tree/main/examples/mods/amber",
+      "screenshots": [],
+      "side": "both",
+      "has_code": false,
+      "versions": [
+        {
+          "version": "0.2.0",
+          "game": ">=0.2.0, <0.4.0",
+          "depends": {},
+          "published": "2026-11-10",
+          "url": "https://example.org/mods/amber-0.2.0.zip",
+          "size": 4096,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000002",
+          "changelog": "Works with game 0.2 and 0.3."
+        },
+        {
+          "version": "0.1.0",
+          "game": ">=0.1.0, <0.2.0",
+          "published": "2026-10-01",
+          "url": "https://example.org/mods/amber-0.1.0.zip",
+          "size": 4000,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000001"
+        }
+      ]
+    },
+    {
+      "id": "redmoon",
+      "name": "Red moon",
+      "summary": "A blood red moon that throws red light, and a small blue moon with a 12 day cycle.",
+      "authors": ["Lilly"],
+      "license": "MIT",
+      "tags": ["sky", "example"],
+      "side": "client",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "depends": { "amber": ">=0.1" },
+          "url": "https://example.org/mods/redmoon-0.1.0.zip",
+          "size": 2048,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000003"
+        }
+      ]
+    },
+    {
+      "id": "wasm_hello",
+      "name": "Wasm hello",
+      "summary": "Greets every player who joins and adds the /hello command.",
+      "authors": ["Lilly"],
+      "license": "MIT",
+      "tags": ["scripting", "example"],
+      "side": "server",
+      "has_code": true,
+      "versions": [
+        {
+          "version": "0.1.0",
+          "game": ">=0.1.0",
+          "url": "https://example.org/mods/wasm_hello-0.1.0.zip",
+          "size": 1024,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000004"
+        }
+      ]
+    }
+  ]
+}

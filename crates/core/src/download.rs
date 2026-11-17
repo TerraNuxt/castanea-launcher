@@ -59,6 +59,7 @@ impl Client {
             .https_only(!policy.allow_loopback_http)
             .http_status_as_error(false)
             .timeout_connect(Some(Duration::from_secs(15)))
+            .timeout_recv_response(Some(Duration::from_secs(30)))
             .timeout_recv_body(Some(Duration::from_secs(60)))
             .build();
         Self { agent: config.into(), policy }
