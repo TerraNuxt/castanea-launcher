@@ -1,0 +1,8 @@
+{
+  "_comment": "A Wasm mod: hello.wat greets every player who joins and adds the /hello command. Build with `--features wasm`. See docs/modding/scripting.md.",
+  "id": "wasm_hello",
+  "name": "Wasm hello",
+  "version": "0.1.0",
+  "author": "Lilly",
+  "wasm": "hello.wat"
+}

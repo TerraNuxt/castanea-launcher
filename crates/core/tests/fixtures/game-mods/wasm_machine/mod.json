@@ -1,0 +1,8 @@
+{
+  "_comment": "A Wasm machine: blinker.wat adds the machine behaviour wasm_machine:blinker and the /blinker command that places one at your feet. Build with `--features wasm`. See docs/content/machines.md.",
+  "id": "wasm_machine",
+  "name": "Wasm machine",
+  "version": "0.1.0",
+  "author": "Lilly",
+  "wasm": "blinker.wat"
+}

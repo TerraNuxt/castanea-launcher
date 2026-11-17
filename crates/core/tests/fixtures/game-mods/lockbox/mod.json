@@ -1,0 +1,7 @@
+{
+  "_comment": "The lockbox example mod: a block with a use hook. Copy this folder to mods/ and run cargo run --example lockbox_mod. See docs/gameplay/interaction.md.",
+  "id": "lockbox",
+  "name": "Lockbox",
+  "version": "0.1.0",
+  "author": "Lilly"
+}

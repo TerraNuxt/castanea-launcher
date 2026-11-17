@@ -1,0 +1,7 @@
+{
+  "_comment": "The Blockbench example mod: a lamp post from a .bbmodel project (two embedded textures, a group, free rotations) and a stool from a Java Block JSON. Copy this folder to mods/ and run castanea-debug models. See docs/modding/blockbench.md.",
+  "id": "blockbench",
+  "name": "Blockbench",
+  "version": "0.1.0",
+  "author": "Lilly"
+}

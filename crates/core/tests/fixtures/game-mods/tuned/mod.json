@@ -1,0 +1,7 @@
+{
+  "_comment": "The tuned example (item 37.5): one value of each tunable kind that is data. Copy this folder to mods/ to try it. The list of files is docs/modding/data-files.md#tunables-read-through-the-layers; the test is src/data/modding/tuned_example_tests.rs.",
+  "id": "tuned",
+  "name": "Tuned",
+  "version": "0.1.0",
+  "author": "castanea"
+}

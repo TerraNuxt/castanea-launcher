@@ -1,0 +1,8 @@
+{
+  "_comment": "A Rust Wasm mod made with castanea-sdk: greets players and moves a broken block up. Build with `castanea-mod build`. See docs/modding/modding.md.",
+  "id": "rust_hello",
+  "name": "Rust hello",
+  "version": "0.1.0",
+  "author": "Lilly",
+  "wasm": "rust_hello.wasm"
+}

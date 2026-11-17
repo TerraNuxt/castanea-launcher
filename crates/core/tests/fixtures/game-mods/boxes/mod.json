@@ -1,0 +1,7 @@
+{
+  "_comment": "The boxes example mod: blocks made of boxes from castanea's box models (a post, a fence piece, a step, a table and a door). Copy this folder to mods/ and run castanea-debug models. See docs/modding/box-models.md.",
+  "id": "boxes",
+  "name": "Boxes",
+  "version": "0.1.0",
+  "author": "Lilly"
+}

@@ -1,0 +1,9 @@
+{
+  "_comment": "The base-game kiln (castanea:kiln, src/game/machine/kiln.rs) as a Wasm machine behaviour: the same rule on the public mod API. Source: examples/vanilla_kiln. See docs/content/machines.md, 'The kiln as a mod'.",
+  "id": "vanilla_kiln",
+  "name": "Vanilla kiln",
+  "version": "0.1.0",
+  "author": "Lilly",
+  "side": "server",
+  "wasm": "kiln.wat"
+}

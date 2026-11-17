@@ -1,0 +1,7 @@
+{
+  "_comment": "The redmoon example mod: a blood red moon that throws red light, and a small blue moon with a 12 day cycle. Copy this folder to mods/. See docs/world/astro.md (Colours).",
+  "id": "redmoon",
+  "name": "Red moon",
+  "version": "0.1.0",
+  "author": "Lilly"
+}

@@ -1,0 +1,7 @@
+{
+  "_comment": "The amber example mod. Copy this folder to mods/ to play with it. See docs/modding/modding.md.",
+  "id": "amber",
+  "name": "Amber",
+  "version": "0.1.0",
+  "author": "Lilly"
+}
