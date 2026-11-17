@@ -9,9 +9,9 @@ use crate::{Error, Result};
 /// Base64 of raw 32-byte ed25519 public keys; several may be listed so a key can be rotated. A release verifies when
 /// one of them signed it.
 ///
-/// PLACEHOLDER: the first entry is a key nobody holds the private half of, so the launcher refuses every update until
-/// the real release key from castanea-backend `docs/releases.md` replaces it (see docs/packaging.md).
-pub const TRUST_KEYS: &[&str] = &["Fzl9p9ttARoPPt9fwKD2ZMFNNl2KmCGoICogJN82Y20="]; // PLACEHOLDER-NOT-A-RELEASE-KEY
+/// The first entry is the release key published in castanea-backend `docs/releases.md` (key_id `c6dafdb0e8d6c8ff`);
+/// its private half lives only on the build host (docs/packaging.md). To rotate, add the new key and ship.
+pub const TRUST_KEYS: &[&str] = &["Hvfz5I2thrSy5B6yHOXiSp1m6OG4oYcsCqXlfIQG9eA="];
 
 // A launcher without any key could never accept an update; refuse to build one.
 const _: () = assert!(!TRUST_KEYS.is_empty(), "trust.rs: TRUST_KEYS must not be empty");
@@ -93,6 +93,7 @@ mod tests {
     fn the_embedded_list_parses_and_is_not_empty() {
         let store = TrustStore::embedded().unwrap();
         assert_eq!(store.ids().len(), TRUST_KEYS.len());
+        assert_eq!(store.ids()[0], "c6dafdb0e8d6c8ff", "the release key of castanea-backend docs/releases.md");
         assert!(store.ids().iter().all(|id| id.len() == 16));
     }
 
