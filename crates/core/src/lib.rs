@@ -5,8 +5,10 @@ pub mod download;
 pub mod error;
 pub mod install;
 pub mod json_file;
+pub mod launch;
 pub mod mods;
 pub mod paths;
+pub mod profile;
 pub mod settings;
 pub mod version;
 
