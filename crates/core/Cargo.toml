@@ -1,6 +1,6 @@
 [package]
 name = "castanea-launcher-core"
-description = "Game installs, profiles, launching, mods and the mod index of the castanea launcher, without UI"
+description = "The game build and its updates, launching, mods and the mod index of the castanea launcher, without UI"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

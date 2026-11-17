@@ -1,4 +1,4 @@
-//! The mods of one profile: `mods/` holds the enabled ones, `mods/.disabled/` the rest (the game skips dot names).
+//! The game's mods: `mods/` holds the enabled ones, `mods/.disabled/` the rest (the game skips dot names).
 
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -1,36 +1,42 @@
-//! The launcher's look as tokens: colours, spacing, radii, text sizes, durations and layout sizes (docs/ui-design.md).
+//! The launcher's look as tokens: colours, spacing, radius, text sizes, durations and layout sizes
+//! (docs/ui-design.md). No colour or size literal lives outside this file.
 
 use std::sync::Arc;
 
-use eframe::egui::{self, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Stroke, Visuals};
+use eframe::egui::{self, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, Stroke, Visuals};
 
-/// Colours; every page and component takes its colours from here.
+/// Colours: three flat surfaces, hairlines, three text greys, one muted accent, and two signal colours for text.
 pub mod color {
     use eframe::egui::Color32;
 
-    pub const BG: Color32 = Color32::from_rgb(0x13, 0x11, 0x10);
-    pub const SIDEBAR: Color32 = Color32::from_rgb(0x0c, 0x0b, 0x0a);
-    pub const SURFACE: Color32 = Color32::from_rgb(0x1d, 0x1a, 0x18);
-    pub const SURFACE_HOVER: Color32 = Color32::from_rgb(0x26, 0x23, 0x20);
-    pub const SURFACE_ACTIVE: Color32 = Color32::from_rgb(0x30, 0x2c, 0x28);
-    pub const SUNKEN: Color32 = Color32::from_rgb(0x15, 0x13, 0x12);
-    pub const BORDER: Color32 = Color32::from_rgb(0x2f, 0x2a, 0x26);
-    pub const TEXT: Color32 = Color32::from_rgb(0xf3, 0xed, 0xe7);
-    pub const TEXT_MUTED: Color32 = Color32::from_rgb(0xa6, 0x9c, 0x93);
-    pub const TEXT_FAINT: Color32 = Color32::from_rgb(0x6e, 0x65, 0x5e);
-    pub const ACCENT: Color32 = Color32::from_rgb(0xe0, 0x7a, 0x2f);
-    pub const ACCENT_STRONG: Color32 = Color32::from_rgb(0xb8, 0x5a, 0x1c);
-    pub const PLAY: Color32 = Color32::from_rgb(0x2f, 0xaa, 0x58);
-    pub const DANGER: Color32 = Color32::from_rgb(0xd6, 0x45, 0x3b);
-    pub const WARN: Color32 = Color32::from_rgb(0xe5, 0xad, 0x48);
-    pub const INFO: Color32 = Color32::from_rgb(0x4b, 0x8f, 0xe0);
-    pub const VIOLET: Color32 = Color32::from_rgb(0x8a, 0x6a, 0xd8);
-    pub const TEAL: Color32 = Color32::from_rgb(0x2a, 0xa5, 0x96);
-    pub const ON_ACCENT: Color32 = Color32::WHITE;
-    pub const BACKDROP: Color32 = Color32::from_rgba_premultiplied(0, 0, 0, 150);
+    /// The sidebar, the log and other sunken areas.
+    pub const BASE: Color32 = Color32::from_rgb(0x13, 0x12, 0x11);
+    /// The page background.
+    pub const BG: Color32 = Color32::from_rgb(0x19, 0x18, 0x17);
+    /// Raised: fields, the selected sidebar item, dialogs, toasts.
+    pub const RAISED: Color32 = Color32::from_rgb(0x22, 0x21, 0x1f);
+    pub const HOVER: Color32 = Color32::from_rgb(0x29, 0x27, 0x25);
+    pub const PRESSED: Color32 = Color32::from_rgb(0x30, 0x2e, 0x2b);
+    /// 1 px separators and outlines.
+    pub const BORDER: Color32 = Color32::from_rgb(0x2e, 0x2c, 0x29);
+    pub const BORDER_STRONG: Color32 = Color32::from_rgb(0x45, 0x42, 0x3e);
+    pub const TEXT: Color32 = Color32::from_rgb(0xeb, 0xe7, 0xe3);
+    pub const TEXT_MUTED: Color32 = Color32::from_rgb(0xa3, 0x9d, 0x97);
+    /// Only for disabled controls, which need no contrast.
+    pub const TEXT_DISABLED: Color32 = Color32::from_rgb(0x66, 0x61, 0x5c);
+    /// Muted chestnut: the primary action, focus and selection, nothing else.
+    pub const ACCENT: Color32 = Color32::from_rgb(0xa3, 0x60, 0x2f);
+    pub const ACCENT_HOVER: Color32 = Color32::from_rgb(0x96, 0x58, 0x2b);
+    pub const ACCENT_PRESSED: Color32 = Color32::from_rgb(0x88, 0x50, 0x27);
+    pub const ON_ACCENT: Color32 = Color32::from_rgb(0xff, 0xff, 0xff);
+    /// Errors, crashes and destructive buttons.
+    pub const DANGER: Color32 = Color32::from_rgb(0xe0, 0x78, 0x6c);
+    pub const DANGER_FILL: Color32 = Color32::from_rgb(0x8f, 0x3a, 0x32);
+    pub const WARN: Color32 = Color32::from_rgb(0xd6, 0xae, 0x5e);
+    pub const BACKDROP: Color32 = Color32::from_rgba_premultiplied(0, 0, 0, 140);
 }
 
-/// The spacing scale in points.
+/// The spacing scale in points (4 and 8 steps).
 pub mod space {
     pub const XS: f32 = 4.0;
     pub const S: f32 = 8.0;
@@ -40,58 +46,83 @@ pub mod space {
     pub const XXL: f32 = 32.0;
 }
 
-/// Corner radii.
+/// Corner radius: one for everything, a smaller one for small inner parts.
 pub mod radius {
-    pub const S: u8 = 6;
-    pub const M: u8 = 10;
-    pub const L: u8 = 14;
-    pub const PILL: u8 = 255;
+    pub const M: u8 = 5;
+    pub const S: u8 = 4;
+    pub const FULL: u8 = 255;
 }
 
-/// Text sizes in points.
+/// Text sizes in points: four, all Inter.
 pub mod size {
-    pub const CAPTION: f32 = 12.0;
-    pub const SMALL: f32 = 13.0;
-    pub const BODY: f32 = 14.5;
-    pub const BUTTON: f32 = 15.0;
-    pub const TITLE: f32 = 17.0;
-    pub const HEADING: f32 = 22.0;
-    pub const DISPLAY: f32 = 28.0;
-    pub const ICON: f32 = 20.0;
+    pub const SMALL: f32 = 12.0;
+    pub const BODY: f32 = 14.0;
+    pub const TITLE: f32 = 18.0;
+    pub const DISPLAY: f32 = 32.0;
+    /// Icon glyphs, not text.
+    pub const ICON: f32 = 16.0;
 }
 
-/// Animation durations in seconds.
+/// Lines and strokes in points.
+pub mod line {
+    pub const HAIRLINE: f32 = 1.0;
+    pub const FOCUS: f32 = 1.5;
+    pub const PROGRESS: f32 = 2.0;
+}
+
+/// Durations in seconds.
 pub mod anim {
     pub const HOVER: f32 = 0.12;
-    pub const PRESS: f32 = 0.08;
-    pub const PAGE: f32 = 0.16;
-    pub const TOAST: f64 = 5.0;
-    pub const TOAST_FADE: f64 = 0.25;
+    pub const TOAST: f64 = 6.0;
+    pub const TOAST_ERROR: f64 = 10.0;
+    /// While a game or a job runs, the window redraws this often (log, progress, running time).
+    pub const BUSY_REPAINT: f64 = 0.25;
 }
 
 /// Layout sizes in points.
 pub mod layout {
-    pub const SIDEBAR: f32 = 72.0;
-    pub const SIDEBAR_ITEM: f32 = 44.0;
-    pub const TITLE_BAR: f32 = 38.0;
-    pub const RIGHT_COLUMN: f32 = 320.0;
-    /// The content width from which a page shows two columns.
-    pub const WIDE: f32 = 960.0;
-    /// The content width below which the mod browser shows list or details, not both.
-    pub const NARROW: f32 = 760.0;
+    pub const SIDEBAR: f32 = 184.0;
+    pub const NAV_ITEM: f32 = 32.0;
+    pub const CONTROL: f32 = 32.0;
+    pub const PLAY: [f32; 2] = [240.0, 48.0];
+    pub const PAGE_MARGIN: f32 = 32.0;
+    pub const PAGE_MARGIN_TOP: f32 = 24.0;
+    /// Pages of rows (settings, about) stay this wide at most.
+    pub const READABLE: f32 = 720.0;
+    /// The settings label column.
+    pub const LABEL: f32 = 220.0;
+    pub const FIELD: f32 = 320.0;
+    /// The mod browser's list column.
+    pub const LIST: f32 = 320.0;
+    pub const LIST_ROW: f32 = 60.0;
+    /// The gap between a title line and its second line.
+    pub const LINE_GAP: f32 = 2.0;
+    /// How far focus rings and selected segments sit from their control.
+    pub const INSET: f32 = 2.0;
+    pub const KNOB_INSET: f32 = 3.0;
+    pub const DOT: f32 = 3.0;
+    /// Puts a row label on the same line as the text of a 32 pt control next to it.
+    pub const LABEL_NUDGE: f32 = 6.0;
+    /// Where the home block sits: this share of the free height goes above it.
+    pub const HOME_RISE: f32 = 0.42;
+    /// The content width below which the mod browser shows the list or the details, not both.
+    pub const NARROW: f32 = 720.0;
+    pub const DIALOG: f32 = 440.0;
+    pub const TOAST: f32 = 360.0;
+    pub const SWITCH: [f32; 2] = [32.0, 18.0];
+    pub const IMAGE: f32 = 48.0;
+    pub const SCREENSHOT: f32 = 220.0;
+    pub const LOG_ROW: f32 = 16.0;
     pub const MIN_WINDOW: [f32; 2] = [1000.0, 640.0];
-    pub const START_WINDOW: [f32; 2] = [1280.0, 760.0];
-    pub const BUTTON_HEIGHT: f32 = 36.0;
+    pub const START_WINDOW: [f32; 2] = [1100.0, 700.0];
 }
 
-/// Font families: Inter for text in three weights, Phosphor for icons (outline and filled).
+/// Inter in two weights for text, Phosphor (regular, line icons) for icons.
 pub mod font {
     use eframe::egui::{FontFamily, FontId};
 
     pub const SEMIBOLD: &str = "inter-semibold";
-    pub const BOLD: &str = "inter-bold";
     pub const ICONS: &str = "phosphor";
-    pub const ICONS_FILL: &str = "phosphor-fill";
 
     pub fn regular(size: f32) -> FontId {
         FontId::proportional(size)
@@ -101,17 +132,21 @@ pub mod font {
         FontId::new(size, FontFamily::Name(SEMIBOLD.into()))
     }
 
-    pub fn bold(size: f32) -> FontId {
-        FontId::new(size, FontFamily::Name(BOLD.into()))
+    pub fn icon(size: f32) -> FontId {
+        FontId::new(size, FontFamily::Name(ICONS.into()))
     }
 
-    pub fn icon(size: f32, filled: bool) -> FontId {
-        FontId::new(size, FontFamily::Name(if filled { ICONS_FILL } else { ICONS }.into()))
+    pub fn mono(size: f32) -> FontId {
+        FontId::monospace(size)
     }
 }
 
 pub fn radius(r: u8) -> CornerRadius {
     CornerRadius::same(r)
+}
+
+pub fn hairline() -> Stroke {
+    Stroke::new(line::HAIRLINE, color::BORDER)
 }
 
 /// `color` mixed towards `other` by `t` (0 keeps `color`).
@@ -126,16 +161,6 @@ pub fn mix(color: Color32, other: Color32, t: f32) -> Color32 {
     )
 }
 
-/// A lighter shade for hover.
-pub fn lighten(color: Color32, t: f32) -> Color32 {
-    mix(color, Color32::WHITE, t)
-}
-
-/// A darker shade for press and gradients.
-pub fn darken(color: Color32, t: f32) -> Color32 {
-    mix(color, Color32::BLACK, t)
-}
-
 fn fonts() -> FontDefinitions {
     let mut fonts = FontDefinitions::default();
     let mut add = |name: &str, bytes: &'static [u8]| {
@@ -143,20 +168,16 @@ fn fonts() -> FontDefinitions {
     };
     add("inter-regular", include_bytes!("../assets/fonts/inter-regular.ttf"));
     add(font::SEMIBOLD, include_bytes!("../assets/fonts/inter-semibold.ttf"));
-    add(font::BOLD, include_bytes!("../assets/fonts/inter-bold.ttf"));
     add(font::ICONS, include_bytes!("../assets/fonts/phosphor-regular.ttf"));
-    add(font::ICONS_FILL, include_bytes!("../assets/fonts/phosphor-fill.ttf"));
     let fallback: Vec<String> = fonts.families.get(&FontFamily::Proportional).cloned().unwrap_or_default();
-    let family = |first: &str, icons: &str| {
-        let mut list = vec![first.to_owned(), icons.to_owned()];
+    let family = |first: &str| {
+        let mut list = vec![first.to_owned(), font::ICONS.to_owned()];
         list.extend(fallback.iter().cloned());
         list
     };
-    fonts.families.insert(FontFamily::Proportional, family("inter-regular", font::ICONS));
-    fonts.families.insert(FontFamily::Name(font::SEMIBOLD.into()), family(font::SEMIBOLD, font::ICONS));
-    fonts.families.insert(FontFamily::Name(font::BOLD.into()), family(font::BOLD, font::ICONS));
+    fonts.families.insert(FontFamily::Proportional, family("inter-regular"));
+    fonts.families.insert(FontFamily::Name(font::SEMIBOLD.into()), family(font::SEMIBOLD));
     fonts.families.insert(FontFamily::Name(font::ICONS.into()), vec![font::ICONS.to_owned()]);
-    fonts.families.insert(FontFamily::Name(font::ICONS_FILL.into()), vec![font::ICONS_FILL.to_owned()]);
     fonts
 }
 
@@ -164,36 +185,43 @@ pub fn apply(ctx: &egui::Context) {
     ctx.set_fonts(fonts());
     let mut visuals = Visuals::dark();
     visuals.panel_fill = color::BG;
-    visuals.window_fill = color::SURFACE;
-    visuals.window_stroke = Stroke::new(1.0, color::BORDER);
-    visuals.window_corner_radius = radius(radius::L);
+    visuals.window_fill = color::RAISED;
+    visuals.window_stroke = hairline();
+    visuals.window_corner_radius = radius(radius::M);
+    visuals.window_shadow = egui::Shadow::NONE;
+    visuals.popup_shadow = egui::Shadow::NONE;
     visuals.menu_corner_radius = radius(radius::M);
-    visuals.extreme_bg_color = color::SUNKEN;
-    visuals.text_edit_bg_color = Some(color::SUNKEN);
-    visuals.faint_bg_color = color::SURFACE;
-    visuals.code_bg_color = color::SUNKEN;
-    visuals.selection.bg_fill = color::ACCENT_STRONG;
-    visuals.selection.stroke = Stroke::new(1.0, color::TEXT);
-    visuals.hyperlink_color = color::ACCENT;
+    visuals.extreme_bg_color = color::BASE;
+    visuals.text_edit_bg_color = Some(color::BASE);
+    visuals.faint_bg_color = color::RAISED;
+    visuals.code_bg_color = color::BASE;
+    visuals.selection.bg_fill = color::ACCENT;
+    visuals.selection.stroke = Stroke::new(line::HAIRLINE, color::ACCENT);
+    visuals.hyperlink_color = color::TEXT;
     visuals.warn_fg_color = color::WARN;
     visuals.error_fg_color = color::DANGER;
     visuals.override_text_color = None;
+    visuals.handle_shape = egui::style::HandleShape::Rect { aspect_ratio: 0.5 };
     let widgets = &mut visuals.widgets;
-    widgets.noninteractive.fg_stroke = Stroke::new(1.0, color::TEXT);
-    widgets.noninteractive.bg_stroke = Stroke::new(1.0, color::BORDER);
-    widgets.noninteractive.bg_fill = color::SURFACE;
-    widgets.inactive.fg_stroke = Stroke::new(1.0, color::TEXT);
-    widgets.inactive.bg_fill = color::SURFACE_HOVER;
-    widgets.inactive.weak_bg_fill = color::SURFACE_HOVER;
-    widgets.inactive.bg_stroke = Stroke::NONE;
-    widgets.hovered.bg_fill = color::SURFACE_ACTIVE;
-    widgets.hovered.weak_bg_fill = color::SURFACE_ACTIVE;
-    widgets.hovered.bg_stroke = Stroke::new(1.0, color::ACCENT);
-    widgets.hovered.fg_stroke = Stroke::new(1.5, color::TEXT);
-    widgets.active.bg_fill = color::ACCENT_STRONG;
-    widgets.active.weak_bg_fill = color::ACCENT_STRONG;
-    widgets.active.bg_stroke = Stroke::new(1.0, color::ACCENT);
-    widgets.open.weak_bg_fill = color::SURFACE_ACTIVE;
+    widgets.noninteractive.fg_stroke = Stroke::new(line::HAIRLINE, color::TEXT);
+    widgets.noninteractive.bg_stroke = hairline();
+    widgets.noninteractive.bg_fill = color::BG;
+    widgets.inactive.fg_stroke = Stroke::new(line::HAIRLINE, color::TEXT);
+    widgets.inactive.bg_fill = color::RAISED;
+    widgets.inactive.weak_bg_fill = color::RAISED;
+    widgets.inactive.bg_stroke = hairline();
+    widgets.hovered.bg_fill = color::HOVER;
+    widgets.hovered.weak_bg_fill = color::HOVER;
+    widgets.hovered.bg_stroke = Stroke::new(line::HAIRLINE, color::BORDER_STRONG);
+    widgets.hovered.fg_stroke = Stroke::new(line::HAIRLINE, color::TEXT);
+    widgets.hovered.expansion = 0.0;
+    widgets.active.bg_fill = color::PRESSED;
+    widgets.active.weak_bg_fill = color::PRESSED;
+    widgets.active.bg_stroke = Stroke::new(line::HAIRLINE, color::BORDER_STRONG);
+    widgets.active.fg_stroke = Stroke::new(line::HAIRLINE, color::TEXT);
+    widgets.active.expansion = 0.0;
+    widgets.open.weak_bg_fill = color::HOVER;
+    widgets.open.bg_stroke = Stroke::new(line::HAIRLINE, color::BORDER_STRONG);
     for widget in [
         &mut widgets.noninteractive,
         &mut widgets.inactive,
@@ -201,24 +229,25 @@ pub fn apply(ctx: &egui::Context) {
         &mut widgets.active,
         &mut widgets.open,
     ] {
-        widget.corner_radius = radius(radius::S);
+        widget.corner_radius = radius(radius::M);
     }
     ctx.set_visuals_of(egui::Theme::Dark, visuals);
     ctx.set_theme(egui::ThemePreference::Dark);
     ctx.all_styles_mut(|style| {
         use egui::TextStyle;
         style.spacing.item_spacing = egui::vec2(space::S, space::S);
-        style.spacing.button_padding = egui::vec2(space::M, 6.0);
-        style.spacing.interact_size.y = 30.0;
+        style.spacing.button_padding = egui::vec2(space::M, space::XS);
+        style.spacing.interact_size.y = layout::CONTROL;
         style.spacing.combo_height = 320.0;
         style.spacing.window_margin = egui::Margin::same(space::L as i8);
-        style.spacing.menu_margin = egui::Margin::same(space::S as i8);
+        style.spacing.menu_margin = egui::Margin::same(space::XS as i8);
+        style.spacing.scroll = egui::style::ScrollStyle::thin();
         style.animation_time = anim::HOVER;
-        style.text_styles.insert(TextStyle::Heading, font::bold(size::HEADING));
+        style.text_styles.insert(TextStyle::Heading, font::semibold(size::TITLE));
         style.text_styles.insert(TextStyle::Body, font::regular(size::BODY));
         style.text_styles.insert(TextStyle::Button, font::regular(size::BODY));
-        style.text_styles.insert(TextStyle::Small, font::regular(size::CAPTION));
-        style.text_styles.insert(TextStyle::Monospace, FontId::monospace(size::SMALL));
+        style.text_styles.insert(TextStyle::Small, font::regular(size::SMALL));
+        style.text_styles.insert(TextStyle::Monospace, font::mono(size::SMALL));
     });
 }
 
@@ -226,17 +255,46 @@ pub fn apply(ctx: &egui::Context) {
 mod tests {
     use super::*;
 
+    fn luminance(c: Color32) -> f32 {
+        let lin = |v: u8| {
+            let v = v as f32 / 255.0;
+            if v <= 0.04045 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) }
+        };
+        0.2126 * lin(c.r()) + 0.7152 * lin(c.g()) + 0.0722 * lin(c.b())
+    }
+
+    fn contrast(a: Color32, b: Color32) -> f32 {
+        let (x, y) = (luminance(a), luminance(b));
+        (x.max(y) + 0.05) / (x.min(y) + 0.05)
+    }
+
     #[test]
-    fn mix_and_shades() {
+    fn text_meets_wcag_aa_on_every_surface() {
+        use color::*;
+        for surface in [BASE, BG, RAISED, HOVER] {
+            for text in [TEXT, TEXT_MUTED, DANGER, WARN] {
+                let ratio = contrast(text, surface);
+                assert!(ratio >= 4.5, "{text:?} on {surface:?}: {ratio:.2}");
+            }
+        }
+        for fill in [ACCENT, ACCENT_HOVER, ACCENT_PRESSED, DANGER_FILL] {
+            assert!(contrast(ON_ACCENT, fill) >= 4.5, "text on {fill:?}");
+        }
+        for surface in [BASE, BG, RAISED] {
+            assert!(contrast(ACCENT, surface) >= 3.0, "focus ring and selection on {surface:?}");
+        }
+    }
+
+    #[test]
+    fn mix_ends() {
         assert_eq!(mix(Color32::BLACK, Color32::WHITE, 0.5), Color32::from_rgb(128, 128, 128));
-        assert_eq!(lighten(color::ACCENT, 0.0), color::ACCENT);
-        assert_eq!(darken(color::ACCENT, 1.0), Color32::BLACK);
+        assert_eq!(mix(color::ACCENT, color::BG, 0.0), color::ACCENT);
     }
 
     #[test]
     fn fonts_have_text_and_icon_families() {
         let fonts = fonts();
-        for name in [font::SEMIBOLD, font::BOLD, font::ICONS, font::ICONS_FILL] {
+        for name in [font::SEMIBOLD, font::ICONS] {
             assert!(fonts.families.contains_key(&FontFamily::Name(name.into())), "{name}");
         }
         assert_eq!(fonts.families[&FontFamily::Proportional][0], "inter-regular");

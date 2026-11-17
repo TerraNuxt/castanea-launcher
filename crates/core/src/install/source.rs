@@ -1,21 +1,20 @@
-//! `GameSource`: something that lists game builds and installs one.
+//! `GameSource`: something that lists game releases and installs one into a folder.
 
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 
-use super::registry::Build;
+use super::build::Build;
 use crate::Result;
 use crate::download::{Client, Progress};
 
-/// One build a source offers.
+/// One release a source offers.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RemoteBuild {
-    /// The id it gets when installed, such as the release tag.
-    pub id: String,
+    /// The release tag.
+    pub tag: String,
     pub version: String,
     pub title: String,
     pub published: String,
-    pub notes: String,
     pub prerelease: bool,
     /// The archive for this platform, or `None` when the release has none.
     pub asset: Option<Asset>,
@@ -35,15 +34,13 @@ pub struct Asset {
 }
 
 pub trait GameSource: Send + Sync {
-    /// A name for the UI, such as `GitHub TerraNuxt/castanea`.
-    fn name(&self) -> String;
     fn list(&self, client: &Client) -> Result<Vec<RemoteBuild>>;
-    /// Installs `build` below `versions_dir` (or registers it in place) and returns it, not yet in the registry.
+    /// Downloads `build`, checks its SHA-256 and unpacks it into `dest` (which must not exist yet).
     fn install(
         &self,
         client: &Client,
         build: &RemoteBuild,
-        versions_dir: &Path,
+        dest: &Path,
         downloads_dir: &Path,
         progress: Progress<'_>,
         cancel: &AtomicBool,

@@ -6,12 +6,11 @@ use std::sync::atomic::AtomicBool;
 
 use serde::Deserialize;
 
+use super::build::Build;
 use super::local;
-use super::registry::{Build, Origin};
 use super::source::{Asset, GameSource, RemoteBuild, asset_fits, platform_target};
 use crate::archive::{self, Limits};
 use crate::download::{self, Client, Progress, Request};
-use crate::paths::safe_name;
 use crate::{Error, Result};
 
 pub const API: &str = "https://api.github.com";
@@ -31,8 +30,6 @@ struct ApiRelease {
     tag_name: String,
     #[serde(default)]
     name: Option<String>,
-    #[serde(default)]
-    body: Option<String>,
     #[serde(default)]
     draft: bool,
     #[serde(default)]
@@ -88,11 +85,10 @@ impl GithubReleases {
                     sums_url: sums.clone(),
                 });
                 RemoteBuild {
-                    id: safe_name(&release.tag_name),
                     version: release.tag_name.trim_start_matches(['v', 'V']).to_owned(),
                     title: release.name.filter(|n| !n.trim().is_empty()).unwrap_or_else(|| release.tag_name.clone()),
+                    tag: release.tag_name,
                     published: release.published_at.unwrap_or_default(),
-                    notes: release.body.unwrap_or_default(),
                     prerelease: release.prerelease,
                     asset,
                 }
@@ -125,10 +121,6 @@ pub fn parse_sums(text: &str, name: &str) -> Option<String> {
 }
 
 impl GameSource for GithubReleases {
-    fn name(&self) -> String {
-        format!("GitHub {}", self.repo)
-    }
-
     fn list(&self, client: &Client) -> Result<Vec<RemoteBuild>> {
         let url = format!("{}/repos/{}/releases?per_page=30", self.api, self.repo);
         let bytes =
@@ -146,7 +138,7 @@ impl GameSource for GithubReleases {
         &self,
         client: &Client,
         build: &RemoteBuild,
-        versions_dir: &Path,
+        dest: &Path,
         downloads_dir: &Path,
         progress: Progress<'_>,
         cancel: &AtomicBool,
@@ -154,7 +146,7 @@ impl GameSource for GithubReleases {
         let asset = build
             .asset
             .as_ref()
-            .ok_or_else(|| Error::invalid(format!("{}: no archive for {}", build.id, self.target)))?;
+            .ok_or_else(|| Error::invalid(format!("{}: no archive for {}", build.tag, self.target)))?;
         let sha256 = self.checksum(client, asset)?;
         let (url, accept) = if self.token.is_some() {
             (&asset.api_url, "application/octet-stream")
@@ -170,24 +162,22 @@ impl GameSource for GithubReleases {
             headers: self.headers(accept),
         };
         client.download(&request, &zip, progress, cancel)?;
-        let root = versions_dir.join(&build.id);
-        let unpacked = archive::extract(&zip, &root, Limits::GAME);
+        let unpacked = archive::extract(&zip, dest, Limits::GAME);
         let _ = fs::remove_file(&zip);
         unpacked?;
-        let Some(binary) = local::find_binary(&root) else {
-            let _ = fs::remove_dir_all(&root);
+        let Some(binary) = local::find_binary(dest) else {
+            let _ = fs::remove_dir_all(dest);
             return Err(Error::invalid(format!("{}: the archive has no castanea binary next to assets/", asset.name)));
         };
         let built = Build {
-            id: build.id.clone(),
             version: build.version.clone(),
-            root,
-            binary,
-            origin: Origin::Github { repo: self.repo.clone(), tag: build.id.clone(), asset: asset.name.clone() },
+            tag: build.tag.clone(),
+            asset: asset.name.clone(),
             sha256: Some(sha256),
-            managed: true,
+            root: dest.to_path_buf(),
+            binary,
         };
-        built.write_install_file()?;
+        built.write()?;
         Ok(built)
     }
 }

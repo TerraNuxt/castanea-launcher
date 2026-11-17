@@ -2,34 +2,36 @@ use std::fs;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 
-use super::detect;
 use super::github::{GithubReleases, parse_sums};
 use super::local::{self, BINARY};
-use super::registry::{Origin, Registry};
-use super::source::{GameSource, asset_fits};
+use super::source::{GameSource, RemoteBuild, asset_fits};
+use super::update::{self, Check};
 use crate::archive::tests::write_zip;
 use crate::download::sha256_hex;
 use crate::paths::Paths;
 use crate::test_server::TestServer;
 
 const LINUX: &str = "x86_64-unknown-linux-gnu";
+const RELEASES: &str = "/repos/TerraNuxt/castanea/releases?per_page=30";
 
-fn game_zip(dir: &Path) -> Vec<u8> {
-    let zip = dir.join("game.zip");
-    let binary = format!("castanea-0.2.0/{BINARY}");
-    write_zip(&zip, &[(binary.as_str(), b"#!/bin/sh\n"), ("castanea-0.2.0/assets/engine/a.json", b"{}")]);
+fn game_zip(dir: &Path, version: &str) -> Vec<u8> {
+    let zip = dir.join(format!("game-{version}.zip"));
+    let binary = format!("castanea-{version}/{BINARY}");
+    let marker = format!("castanea-{version}/assets/version-{version}.json");
+    write_zip(&zip, &[(binary.as_str(), b"#!/bin/sh\n"), (marker.as_str(), b"{}")]);
     fs::read(zip).unwrap()
 }
 
-fn releases_json(base: &str, digest: Option<&str>) -> String {
+/// One release `version` whose zip is at `/dl/<version>.zip`, plus a draft and a Windows-only pre-release.
+fn releases_json(base: &str, version: &str, size: usize, digest: Option<&str>) -> String {
     let digest = digest.map_or("null".to_owned(), |d| format!("\"sha256:{d}\""));
     format!(
         r#"[
-        {{"tag_name":"v0.2.0","name":"","draft":false,"prerelease":false,"published_at":"2026-11-01T00:00:00Z","body":"notes",
-          "assets":[{{"name":"castanea-0.2.0-{LINUX}.zip","url":"{base}/api/asset/1","browser_download_url":"{base}/dl/game.zip","size":SIZE,"digest":{digest}}},
-                    {{"name":"SHA256SUMS","url":"{base}/api/asset/2","browser_download_url":"{base}/dl/SHA256SUMS","size":10}}]}},
-        {{"tag_name":"v0.3.0-draft","draft":true,"assets":[]}},
-        {{"tag_name":"v0.1.0","prerelease":true,"assets":[{{"name":"castanea-0.1.0-x86_64-pc-windows-msvc.zip","url":"u","browser_download_url":"b","size":1}}]}}
+        {{"tag_name":"v{version}","name":"","draft":false,"prerelease":false,"published_at":"2026-11-01T00:00:00Z",
+          "assets":[{{"name":"castanea-{version}-{LINUX}.zip","url":"{base}/api/asset/{version}","browser_download_url":"{base}/dl/{version}.zip","size":{size},"digest":{digest}}},
+                    {{"name":"SHA256SUMS","url":"{base}/api/sums","browser_download_url":"{base}/dl/SHA256SUMS","size":10}}]}},
+        {{"tag_name":"v9.9.9-draft","draft":true,"assets":[]}},
+        {{"tag_name":"v0.0.1","prerelease":true,"assets":[{{"name":"castanea-0.0.1-x86_64-pc-windows-msvc.zip","url":"u","browser_download_url":"b","size":1}}]}}
     ]"#
     )
 }
@@ -39,6 +41,42 @@ fn source(server: &TestServer, token: Option<&str>) -> GithubReleases {
     source.api = server.base.clone();
     source.target = LINUX.to_owned();
     source
+}
+
+/// Publishes `version` on the server with its digest; returns the zip bytes.
+fn publish(server: &TestServer, dir: &Path, version: &str) -> Vec<u8> {
+    let bytes = game_zip(dir, version);
+    let json = releases_json(&server.base, version, bytes.len(), Some(&sha256_hex(&bytes)));
+    server.put(RELEASES, json);
+    server.put(&format!("/dl/{version}.zip"), bytes.clone());
+    bytes
+}
+
+fn remote(tag: &str, version: &str, prerelease: bool, asset: bool) -> RemoteBuild {
+    let asset = asset.then(|| super::source::Asset {
+        name: "castanea.zip".into(),
+        download_url: String::new(),
+        api_url: String::new(),
+        size: 1,
+        sha256: None,
+        sums_url: None,
+    });
+    RemoteBuild {
+        tag: tag.into(),
+        version: version.into(),
+        title: tag.into(),
+        published: String::new(),
+        prerelease,
+        asset,
+    }
+}
+
+fn update_to_newest(source: &GithubReleases, paths: &Paths) -> crate::Result<super::Build> {
+    let client = TestServer::client();
+    let installed = update::installed(paths);
+    let Check::Update(remote) = update::check(source, &client, installed.as_ref())? else { panic!("no update") };
+    update::download(source, &client, &remote, paths, &mut |_, _| {}, &AtomicBool::new(false))?;
+    update::activate(paths)
 }
 
 #[test]
@@ -61,94 +99,146 @@ fn sums_files_are_read() {
 }
 
 #[test]
-fn releases_list_skips_drafts_and_picks_the_platform_asset() {
+fn releases_list_skips_drafts_and_the_newest_stable_release_wins() {
     let server = TestServer::start();
-    let json = releases_json(&server.base, None).replace("SIZE", "5");
-    server.put("/repos/TerraNuxt/castanea/releases?per_page=30", json);
+    server.put(RELEASES, releases_json(&server.base, "0.2.0", 5, None));
     let builds = source(&server, None).list(&TestServer::client()).unwrap();
     assert_eq!(builds.len(), 2);
-    assert_eq!(builds[0].id, "v0.2.0");
-    assert_eq!(builds[0].version, "0.2.0");
-    assert_eq!(builds[0].title, "v0.2.0");
-    assert!(builds[0].asset.is_some());
-    assert!(builds[1].prerelease);
+    assert_eq!((builds[0].tag.as_str(), builds[0].version.as_str()), ("v0.2.0", "0.2.0"));
     assert!(builds[1].asset.is_none(), "only a Windows asset");
+
+    let list = vec![
+        remote("v0.10.0", "0.10.0", false, true),
+        remote("v0.9.0", "0.9.0", false, true),
+        remote("v0.11.0-rc.1", "0.11.0-rc.1", true, true),
+        remote("v1.0.0", "1.0.0", false, false),
+    ];
+    assert_eq!(update::latest(list).unwrap().tag, "v0.10.0", "stable, with an asset, by version not by text");
+    let only_pre = vec![remote("v0.1.0-rc.1", "0.1.0-rc.1", true, true)];
+    assert_eq!(update::latest(only_pre).unwrap().tag, "v0.1.0-rc.1", "a pre-release when there is nothing else");
+    assert!(update::latest(Vec::new()).is_none());
 }
 
 #[test]
-fn a_release_installs_with_the_digest_and_the_token_goes_to_the_api_url() {
+fn an_update_is_wanted_for_another_newer_release_only() {
+    let installed = super::Build { version: "0.2.0".into(), tag: "v0.2.0".into(), ..Default::default() };
+    assert!(update::wanted(&remote("v0.3.0", "0.3.0", false, true), Some(&installed)));
+    assert!(!update::wanted(&remote("v0.2.0", "0.2.0", false, true), Some(&installed)));
+    assert!(!update::wanted(&remote("v0.1.0", "0.1.0", false, true), Some(&installed)), "never a downgrade");
+    assert!(update::wanted(&remote("v0.1.0", "0.1.0", false, true), None));
+}
+
+#[test]
+fn a_newer_release_is_found_downloaded_and_replaces_the_old_build() {
     let server = TestServer::start();
     let dir = tempfile::tempdir().unwrap();
-    let bytes = game_zip(dir.path());
-    let json = releases_json(&server.base, Some(&sha256_hex(&bytes))).replace("SIZE", &bytes.len().to_string());
-    server.put("/repos/TerraNuxt/castanea/releases?per_page=30", json);
-    server.put("/api/asset/1", bytes);
-    let source = source(&server, Some("secret-token"));
+    let paths = Paths::portable(&dir.path().join("home"));
+    let source = source(&server, None);
+    publish(&server, dir.path(), "0.2.0");
+    assert!(update::installed(&paths).is_none());
+    let first = update_to_newest(&source, &paths).unwrap();
+    assert_eq!((first.tag.as_str(), first.version.as_str()), ("v0.2.0", "0.2.0"));
+    assert_eq!(first.binary, update::current_dir(&paths).join(BINARY));
+    assert!(first.assets().join("version-0.2.0.json").is_file());
     let client = TestServer::client();
-    let build = source.list(&client).unwrap().remove(0);
-    let paths = Paths::portable(dir.path());
-    let installed = source
-        .install(&client, &build, &paths.versions(), &paths.downloads(), &mut |_, _| {}, &AtomicBool::new(false))
-        .unwrap();
-    assert!(installed.managed);
-    assert!(installed.is_present());
-    assert_eq!(installed.binary, paths.versions().join("v0.2.0").join(BINARY));
-    assert!(paths.versions().join("v0.2.0/install.json").is_file());
-    let seen = server.seen.lock().unwrap();
-    let (path, headers) = seen.iter().find(|(p, _)| p == "/api/asset/1").unwrap();
-    assert_eq!(path, "/api/asset/1");
-    assert!(headers.iter().any(|(k, v)| k == "authorization" && v == "Bearer secret-token"));
-    assert!(headers.iter().any(|(k, v)| k == "accept" && v == "application/octet-stream"));
+    assert_eq!(update::check(&source, &client, Some(&first)).unwrap(), Check::UpToDate);
+
+    publish(&server, dir.path(), "0.3.0");
+    let second = update_to_newest(&source, &paths).unwrap();
+    assert_eq!(second.version, "0.3.0");
+    assert_eq!(update::installed(&paths).unwrap(), second);
+    assert!(second.assets().join("version-0.3.0.json").is_file());
+    assert!(!second.assets().join("version-0.2.0.json").exists(), "the old build is replaced");
+    assert!(!update::previous_dir(&paths).exists() && !update::next_dir(&paths).exists());
     assert_eq!(fs::read_dir(paths.downloads()).unwrap().count(), 0, "the archive is deleted after unpacking");
 }
 
 #[test]
-fn a_release_falls_back_to_sha256sums_and_refuses_a_wrong_archive() {
+fn a_hash_mismatch_is_rejected_and_the_old_build_kept() {
     let server = TestServer::start();
     let dir = tempfile::tempdir().unwrap();
-    let bytes = game_zip(dir.path());
-    let json = releases_json(&server.base, None).replace("SIZE", &bytes.len().to_string());
-    server.put("/repos/TerraNuxt/castanea/releases?per_page=30", json);
-    server.put("/dl/game.zip", bytes.clone());
-    server.put("/dl/SHA256SUMS", format!("{}  castanea-0.2.0-{LINUX}.zip\n", sha256_hex(&bytes)));
+    let paths = Paths::portable(&dir.path().join("home"));
     let source = source(&server, None);
-    let client = TestServer::client();
-    let build = source.list(&client).unwrap().remove(0);
-    let paths = Paths::portable(dir.path());
-    source
-        .install(&client, &build, &paths.versions(), &paths.downloads(), &mut |_, _| {}, &AtomicBool::new(false))
-        .unwrap();
+    publish(&server, dir.path(), "0.2.0");
+    let old = update_to_newest(&source, &paths).unwrap();
 
-    let mut tampered = bytes.clone();
+    let mut tampered = publish(&server, dir.path(), "0.3.0");
     tampered[10] ^= 1;
-    server.put("/dl/game.zip", tampered);
-    let mut again = build.clone();
-    again.id = "v0.2.0-again".to_owned();
-    let error = source
-        .install(&client, &again, &paths.versions(), &paths.downloads(), &mut |_, _| {}, &AtomicBool::new(false))
-        .unwrap_err();
+    server.put("/dl/0.3.0.zip", tampered);
+    let client = TestServer::client();
+    let Check::Update(remote) = update::check(&source, &client, Some(&old)).unwrap() else { panic!() };
+    let error =
+        update::download(&source, &client, &remote, &paths, &mut |_, _| {}, &AtomicBool::new(false)).unwrap_err();
     assert!(error.to_string().contains("SHA-256"), "{error}");
-    assert!(!paths.versions().join("v0.2.0-again").exists());
+    assert!(update::activate(&paths).is_err(), "nothing to activate");
+    assert_eq!(update::installed(&paths).unwrap(), old);
+    assert!(old.assets().join("version-0.2.0.json").is_file(), "the old build still runs");
+    assert!(!update::next_dir(&paths).exists());
 }
 
 #[test]
-fn a_release_without_any_checksum_is_refused() {
-    let server = TestServer::start();
-    let json = releases_json(&server.base, None).replace("SIZE", "5").replace("\"SHA256SUMS\"", "\"notes.txt\"");
-    server.put("/repos/TerraNuxt/castanea/releases?per_page=30", json);
+fn offline_the_check_fails_and_the_installed_build_stays() {
     let dir = tempfile::tempdir().unwrap();
-    let source = source(&server, None);
-    let client = TestServer::client();
-    let build = source.list(&client).unwrap().remove(0);
     let paths = Paths::portable(dir.path());
-    let error = source
-        .install(&client, &build, &paths.versions(), &paths.downloads(), &mut |_, _| {}, &AtomicBool::new(false))
-        .unwrap_err();
+    let server = TestServer::start();
+    publish(&server, dir.path(), "0.2.0");
+    let mut source = source(&server, None);
+    let installed = update_to_newest(&source, &paths).unwrap();
+    let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    source.api = format!("http://127.0.0.1:{port}");
+    let error = update::check(&source, &TestServer::client(), Some(&installed)).unwrap_err();
+    assert!(matches!(error, crate::Error::Http { .. }), "{error}");
+    assert_eq!(update::installed(&paths).unwrap(), installed);
+}
+
+#[test]
+fn a_stopped_swap_falls_back_to_the_previous_build() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = Paths::portable(dir.path());
+    let server = TestServer::start();
+    publish(&server, dir.path(), "0.2.0");
+    let source = source(&server, None);
+    update_to_newest(&source, &paths).unwrap();
+    fs::rename(update::current_dir(&paths), update::previous_dir(&paths)).unwrap();
+    assert_eq!(update::installed(&paths).unwrap().version, "0.2.0");
+}
+
+#[test]
+fn the_token_goes_to_the_api_url() {
+    let server = TestServer::start();
+    let dir = tempfile::tempdir().unwrap();
+    let bytes = game_zip(dir.path(), "0.2.0");
+    server.put(RELEASES, releases_json(&server.base, "0.2.0", bytes.len(), Some(&sha256_hex(&bytes))));
+    server.put("/api/asset/0.2.0", bytes);
+    let source = source(&server, Some("secret-token"));
+    let paths = Paths::portable(dir.path());
+    update_to_newest(&source, &paths).unwrap();
+    let seen = server.seen.lock().unwrap();
+    let (_, headers) = seen.iter().find(|(p, _)| p == "/api/asset/0.2.0").unwrap();
+    assert!(headers.iter().any(|(k, v)| k == "authorization" && v == "Bearer secret-token"));
+    assert!(headers.iter().any(|(k, v)| k == "accept" && v == "application/octet-stream"));
+}
+
+#[test]
+fn a_release_falls_back_to_sha256sums_or_is_refused_without_a_checksum() {
+    let server = TestServer::start();
+    let dir = tempfile::tempdir().unwrap();
+    let bytes = game_zip(dir.path(), "0.2.0");
+    server.put(RELEASES, releases_json(&server.base, "0.2.0", bytes.len(), None));
+    server.put("/dl/0.2.0.zip", bytes.clone());
+    server.put("/dl/SHA256SUMS", format!("{}  castanea-0.2.0-{LINUX}.zip\n", sha256_hex(&bytes)));
+    let source = source(&server, None);
+    let paths = Paths::portable(&dir.path().join("a"));
+    assert_eq!(update_to_newest(&source, &paths).unwrap().version, "0.2.0");
+
+    let json = releases_json(&server.base, "0.2.0", bytes.len(), None).replace("\"SHA256SUMS\"", "\"notes.txt\"");
+    server.put(RELEASES, json);
+    let error = update_to_newest(&source, &Paths::portable(&dir.path().join("b"))).unwrap_err();
     assert!(error.to_string().contains("no checksum"), "{error}");
 }
 
 #[test]
-fn local_folders_and_checkouts_are_found_and_registered_in_place() {
+fn local_folders_and_checkouts_are_read_in_place() {
     let dir = tempfile::tempdir().unwrap();
     let release = dir.path().join("castanea-0.4.0");
     fs::create_dir_all(release.join("assets")).unwrap();
@@ -162,46 +252,10 @@ fn local_folders_and_checkouts_are_found_and_registered_in_place() {
     let empty = dir.path().join("empty");
     fs::create_dir_all(&empty).unwrap();
 
-    let mut registry = Registry::default();
-    let found = detect::detect(&registry, &[release.clone(), checkout.clone(), empty.clone(), release.clone()]);
-    assert_eq!(found.len(), 2, "{found:?}");
-    assert_eq!(found[0].version, "0.4.0");
-    assert_eq!(found[1].version, "0.1.0");
-    assert_eq!(found[1].id, "local-checkout");
-    assert!(local::inspect(&registry, &empty, Origin::Local).is_err());
-    for build in found {
-        registry.put(build);
-    }
-    assert!(detect::detect(&registry, std::slice::from_ref(&release)).is_empty(), "already known");
-
-    let paths = Paths::portable(dir.path());
-    registry.remove(&paths, "local-castanea-0.4.0").unwrap().unwrap();
-    assert!(release.join(BINARY).is_file(), "a registered folder is never deleted");
-}
-
-#[test]
-fn managed_builds_are_deleted_and_adopted_back() {
-    let dir = tempfile::tempdir().unwrap();
-    let paths = Paths::portable(dir.path());
-    let root = paths.versions().join("v1");
-    fs::create_dir_all(root.join("assets")).unwrap();
-    fs::write(root.join(BINARY), "bin").unwrap();
-    let mut registry = Registry::default();
-    let build = super::Build {
-        id: "v1".into(),
-        version: "1.0.0".into(),
-        root: root.clone(),
-        binary: root.join(BINARY),
-        origin: Origin::Github { repo: "a/b".into(), tag: "v1".into(), asset: "x.zip".into() },
-        sha256: None,
-        managed: true,
-    };
-    build.write_install_file().unwrap();
-    let mut adopted = Registry::default();
-    adopted.adopt_managed(&paths);
-    assert_eq!(adopted.builds, std::slice::from_ref(&build));
-    registry.put(build);
-    assert_eq!(registry.free_id("v1"), "v1-2");
-    registry.remove(&paths, "v1").unwrap();
-    assert!(!root.exists());
+    assert_eq!(local::inspect(&release).unwrap().version, "0.4.0");
+    let build = local::inspect(&checkout).unwrap();
+    assert_eq!(build.version, "0.1.0");
+    assert!(build.binary.ends_with(Path::new("target/release").join(BINARY)));
+    assert!(build.tag.is_empty());
+    assert!(local::inspect(&empty).is_err());
 }

@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use crate::install::Build;
-use crate::profile::{Profile, StartIn};
+use crate::settings::GameOptions;
 use crate::{Error, Result};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -30,46 +30,21 @@ impl Plan {
     }
 }
 
-/// Builds the plan for `profile` on `build`, run in `game_dir`.
-pub fn plan(profile: &Profile, build: &Build, game_dir: PathBuf) -> Result<Plan> {
+/// Builds the plan for `build` with `options`, run in `game_dir`. The game opens its own menu.
+pub fn plan(options: &GameOptions, build: &Build, game_dir: PathBuf) -> Result<Plan> {
     let mut args = Vec::new();
-    match &profile.start {
-        StartIn::Menu => {}
-        StartIn::World { name, seed, host_port } => {
-            let seed = seed.trim();
-            if !seed.is_empty() {
-                if seed.starts_with('-') || seed.contains(char::is_whitespace) {
-                    return Err(Error::invalid(format!("seed `{seed}` must be one word")));
-                }
-                args.push(seed.to_owned());
-            }
-            let name = name.trim();
-            if !name.is_empty() {
-                check_word("world", name)?;
-                args.extend(["--world".to_owned(), name.to_owned()]);
-            }
-            if let Some(port) = host_port {
-                args.extend(["--host".to_owned(), port.to_string()]);
-            }
-        }
-        StartIn::Join { address } => {
-            let address = address.trim();
-            check_word("server address", address)?;
-            args.extend(["--join".to_owned(), address.to_owned()]);
-        }
-    }
-    let player = profile.player_name.trim();
+    let player = options.player_name.trim();
     if !player.is_empty() {
         check_word("player name", player)?;
         args.extend(["--name".to_owned(), player.to_owned()]);
     }
-    args.extend(split_args(&profile.extra_args)?);
+    args.extend(split_args(&options.extra_args)?);
 
     let mut env = Vec::new();
-    if let Some(value) = profile.graphics.env_value() {
+    if let Some(value) = options.graphics.env_value() {
         env.push(("CASTANEA_BACKEND".to_owned(), value.to_owned()));
     }
-    let window = profile.window.trim();
+    let window = options.window.trim();
     if !window.is_empty() {
         let valid = window.split_once('x').is_some_and(|(w, h)| w.parse::<u32>().is_ok() && h.parse::<u32>().is_ok());
         if !valid {
@@ -77,7 +52,7 @@ pub fn plan(profile: &Profile, build: &Build, game_dir: PathBuf) -> Result<Plan>
         }
         env.push(("CASTANEA_WINDOW".to_owned(), window.to_owned()));
     }
-    for (key, value) in &profile.env {
+    for (key, value) in &options.env {
         let key = key.trim();
         if key.is_empty() {
             continue;

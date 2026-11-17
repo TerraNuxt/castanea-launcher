@@ -1,16 +1,16 @@
-//! A game build in a local folder: a release folder (binary next to `assets/`) or a checkout (`target/release`).
+//! A game build in a local folder: a release folder (binary next to `assets/`) or a checkout (`target/release`). For
+//! people who build the game from source; the folder is run in place, never copied or changed.
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicBool;
 
-use super::registry::{Build, Origin, Registry};
-use super::source::{GameSource, RemoteBuild};
-use crate::download::{Client, Progress};
+use super::build::Build;
 use crate::{Error, Result};
 
 pub const BINARY: &str = if cfg!(windows) { "castanea.exe" } else { "castanea" };
 pub const VERSION_FILE: &str = "version.txt";
+/// Points the launcher at a local build folder for one run, like the `--game-dir` flag.
+pub const GAME_DIR_ENV: &str = "CASTANEA_GAME_DIR";
 
 /// The game binary for a game folder that holds `assets/`: next to it, or in a checkout's `target/release`.
 pub fn find_binary(root: &Path) -> Option<PathBuf> {
@@ -41,8 +41,8 @@ pub fn read_version(root: &Path, binary: &Path) -> String {
     "local".to_owned()
 }
 
-/// A build for `folder`, not yet in the registry; an error says what is missing.
-pub fn inspect(registry: &Registry, folder: &Path, origin: Origin) -> Result<Build> {
+/// The build in `folder`; an error says what is missing.
+pub fn inspect(folder: &Path) -> Result<Build> {
     let root = folder.canonicalize().map_err(|error| Error::io(folder, error))?;
     let binary = find_binary(&root).ok_or_else(|| {
         Error::invalid(format!(
@@ -50,54 +50,6 @@ pub fn inspect(registry: &Registry, folder: &Path, origin: Origin) -> Result<Bui
             root.display()
         ))
     })?;
-    if let Some(known) = registry.builds.iter().find(|b| b.root == root) {
-        return Ok(known.clone());
-    }
     let version = read_version(&root, &binary);
-    let name = root.file_name().map_or("game".into(), |n| n.to_string_lossy().into_owned());
-    Ok(Build {
-        id: registry.free_id(&format!("local-{name}")),
-        version,
-        root,
-        binary,
-        origin,
-        sha256: None,
-        managed: false,
-    })
-}
-
-/// The folder as a source with one build; installing registers it in place.
-pub struct LocalFolder {
-    pub folder: PathBuf,
-}
-
-impl GameSource for LocalFolder {
-    fn name(&self) -> String {
-        self.folder.display().to_string()
-    }
-
-    fn list(&self, _client: &Client) -> Result<Vec<RemoteBuild>> {
-        let build = inspect(&Registry::default(), &self.folder, Origin::Local)?;
-        Ok(vec![RemoteBuild {
-            id: build.id,
-            version: build.version,
-            title: self.folder.display().to_string(),
-            published: String::new(),
-            notes: String::new(),
-            prerelease: false,
-            asset: None,
-        }])
-    }
-
-    fn install(
-        &self,
-        _client: &Client,
-        _build: &RemoteBuild,
-        _versions_dir: &Path,
-        _downloads_dir: &Path,
-        _progress: Progress<'_>,
-        _cancel: &AtomicBool,
-    ) -> Result<Build> {
-        inspect(&Registry::default(), &self.folder, Origin::Local)
-    }
+    Ok(Build { version, root, binary, ..Build::default() })
 }

@@ -78,7 +78,7 @@ The archive is the game's package format: a zip with `mod.json` at the top (`cas
 2. Checks the SHA-256; a mismatch deletes the file and reports both hashes.
 3. Opens the zip: every entry name must be relative with no `..`, no links, at most 4096 entries and 64 MiB unpacked.
 4. Reads `mod.json` and checks `id` and `version` against the index.
-5. Copies the zip to the profile's `mods/.disabled/<id>.zip`. The user enables it after seeing what it declares.
+5. Copies the zip to the game folder's `mods/.disabled/<id>.zip`. The user enables it after seeing what it declares.
    An update replaces the old package and keeps it enabled if it was.
 
 ## Signatures

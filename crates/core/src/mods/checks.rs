@@ -1,4 +1,4 @@
-//! Problems with a profile's mods: broken manifests, duplicate ids, missing or disabled dependencies, cycles,
+//! Problems with the game's mods: broken manifests, duplicate ids, missing or disabled dependencies, cycles,
 //! keys the game refuses, and game versions outside a mod's range.
 
 use std::collections::{HashMap, HashSet};

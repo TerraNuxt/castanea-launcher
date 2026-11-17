@@ -5,18 +5,32 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};
 
 use castanea_launcher_core::index::Index;
-use castanea_launcher_core::install::{Build, RemoteBuild};
+use castanea_launcher_core::install::Build;
+use castanea_launcher_core::install::update::Check;
 use eframe::egui;
 
 pub enum Done {
-    Index { index: Index, warnings: Vec<String> },
-    Releases { builds: Vec<(usize, RemoteBuild)>, errors: Vec<String> },
-    BuildInstalled(Result<Build, String>),
-    ModInstalled { id: String, result: Result<(), String> },
-    Image { url: String, result: Result<Vec<u8>, String> },
+    Index {
+        index: Index,
+        warnings: Vec<String>,
+    },
+    /// The update check of the game build.
+    Checked(Result<Check, String>),
+    /// A newer build downloaded, checked and unpacked next to the installed one.
+    Downloaded(Result<Build, String>),
+    /// The downloaded build became the installed one.
+    Applied(Result<Build, String>),
+    ModInstalled {
+        id: String,
+        result: Result<(), String>,
+    },
+    Image {
+        url: String,
+        result: Result<Vec<u8>, String>,
+    },
 }
 
-/// The current long task for the status bar: what, bytes done, bytes in all.
+/// A download in progress: what, bytes done, bytes in all.
 #[derive(Clone, Debug, Default)]
 pub struct Progress {
     pub label: String,
@@ -24,11 +38,21 @@ pub struct Progress {
     pub total: Option<u64>,
 }
 
+impl Progress {
+    /// Done as a fraction, when the size is known.
+    pub fn fraction(&self) -> Option<f32> {
+        self.total.map(|t| (self.done as f64 / t.max(1) as f64).clamp(0.0, 1.0) as f32)
+    }
+}
+
+pub type Slot = Arc<Mutex<Option<Progress>>>;
+
 pub struct Jobs {
     tx: Sender<Done>,
     rx: Receiver<Done>,
     pub running: usize,
-    pub progress: Arc<Mutex<Option<Progress>>>,
+    /// The mod download in progress.
+    pub progress: Slot,
     pub cancel: Arc<AtomicBool>,
 }
 
@@ -56,25 +80,25 @@ impl Jobs {
         self.running -= out.len().min(self.running);
         out
     }
+}
 
-    /// A progress callback for a download that updates the status bar.
-    pub fn reporter(&self, ctx: &egui::Context, label: String) -> impl FnMut(u64, Option<u64>) + Send + 'static {
-        let progress = self.progress.clone();
-        let ctx = ctx.clone();
-        if let Ok(mut slot) = progress.lock() {
-            *slot = Some(Progress { label: label.clone(), done: 0, total: None });
-        }
-        move |done, total| {
-            if let Ok(mut slot) = progress.lock() {
-                *slot = Some(Progress { label: label.clone(), done, total });
-            }
-            ctx.request_repaint();
-        }
+/// A progress callback for a download that fills `slot` and redraws the window.
+pub fn reporter(ctx: &egui::Context, slot: &Slot, label: String) -> impl FnMut(u64, Option<u64>) + Send + 'static {
+    let slot = slot.clone();
+    let ctx = ctx.clone();
+    set(&slot, Some(Progress { label: label.clone(), done: 0, total: None }));
+    move |done, total| {
+        set(&slot, Some(Progress { label: label.clone(), done, total }));
+        ctx.request_repaint();
     }
+}
 
-    pub fn clear_progress(&self) {
-        if let Ok(mut slot) = self.progress.lock() {
-            *slot = None;
-        }
+pub fn set(slot: &Slot, value: Option<Progress>) {
+    if let Ok(mut current) = slot.lock() {
+        *current = value;
     }
+}
+
+pub fn get(slot: &Slot) -> Option<Progress> {
+    slot.lock().ok().and_then(|p| p.clone())
 }

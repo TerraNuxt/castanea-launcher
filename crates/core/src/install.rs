@@ -1,13 +1,13 @@
-//! Game builds: the registry of installed builds, finding them, and the sources they come from.
+//! The game build: the one installed release, where releases come from, and updating to the newest one.
 
-pub mod detect;
+pub mod build;
 pub mod github;
 pub mod local;
-pub mod registry;
 pub mod source;
 pub mod token;
+pub mod update;
 
-pub use registry::{Build, Origin, Registry};
+pub use build::Build;
 pub use source::{GameSource, RemoteBuild};
 
 #[cfg(test)]

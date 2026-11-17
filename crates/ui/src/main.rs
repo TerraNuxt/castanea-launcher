@@ -1,9 +1,8 @@
-//! The castanea launcher: a native window to start the game, manage builds and mods, and browse a mod index.
+//! The castanea launcher: a native window that keeps the game at its newest release, starts it, and manages mods.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app;
-mod chrome;
-mod hero;
+mod game;
 mod i18n;
 mod icons;
 mod jobs;
@@ -11,6 +10,7 @@ mod pages;
 mod probe;
 mod screenshots;
 mod shell;
+mod sidebar;
 mod theme;
 mod widgets;
 
@@ -19,13 +19,15 @@ mod tests;
 
 use std::path::PathBuf;
 
+use castanea_launcher_core::install::local::GAME_DIR_ENV;
 use castanea_launcher_core::paths::Paths;
-use castanea_launcher_core::settings::Settings;
 use eframe::egui;
 
-const USAGE: &str = "usage: castanea-launcher [--screenshots DIR] [--version]
+const USAGE: &str = "usage: castanea-launcher [--game-dir DIR] [--screenshots DIR] [--version]
+  --game-dir DIR      run the game build in DIR in place (a checkout or a build folder) instead of the newest release
   --screenshots DIR   draw each page once, save PNGs to DIR, then quit
-Environment: CASTANEA_LAUNCHER_HOME puts config, data and cache below one folder (portable mode).";
+Environment: CASTANEA_LAUNCHER_HOME puts config, data and cache below one folder (portable mode);
+CASTANEA_GAME_DIR is the same as --game-dir.";
 
 struct Launcher {
     app: app::App,
@@ -51,9 +53,11 @@ impl eframe::App for Launcher {
 fn main() -> std::process::ExitCode {
     let mut args = std::env::args().skip(1);
     let mut shots_dir: Option<PathBuf> = None;
+    let mut game_dir = std::env::var_os(GAME_DIR_ENV).filter(|v| !v.is_empty()).map(PathBuf::from);
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--screenshots" => shots_dir = args.next().map(PathBuf::from),
+            "--game-dir" => game_dir = args.next().map(PathBuf::from),
             "--version" => {
                 println!("castanea-launcher {}", env!("CARGO_PKG_VERSION"));
                 return std::process::ExitCode::SUCCESS;
@@ -69,13 +73,11 @@ fn main() -> std::process::ExitCode {
         return std::process::ExitCode::FAILURE;
     };
     let screenshot_mode = shots_dir.is_some();
-    let system_frame = Settings::load(&paths).map(|s| s.system_frame).unwrap_or(false);
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title("castanea launcher")
+            .with_title("castanea")
             .with_inner_size(theme::layout::START_WINDOW)
             .with_min_inner_size(theme::layout::MIN_WINDOW)
-            .with_decorations(system_frame && !screenshot_mode)
             .with_app_id("castanea-launcher"),
         persist_window: !screenshot_mode,
         persistence_path: (!screenshot_mode).then(|| paths.data.join("window")),
@@ -89,7 +91,9 @@ fn main() -> std::process::ExitCode {
         Box::new(move |cc| {
             theme::apply(&cc.egui_ctx);
             egui_extras::install_image_loaders(&cc.egui_ctx);
-            Ok(Box::new(Launcher { app: app::App::new(paths), shots }))
+            let mut app = app::App::new(paths, game_dir);
+            app.auto_check = shots.is_none();
+            Ok(Box::new(Launcher { app, shots }))
         }),
     );
     if let Err(error) = result {

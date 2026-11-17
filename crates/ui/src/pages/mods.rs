@@ -10,7 +10,7 @@ use eframe::egui::{self, RichText};
 use crate::app::{App, Confirm, ModsView, open_or_note};
 use crate::pages::browse;
 use crate::theme::{color, size, space};
-use crate::widgets::{self, Card, Kind, Pill, icon_button};
+use crate::widgets::{self, Button, Kind, icon_button};
 use crate::{icons, probe};
 
 pub fn ui(app: &mut App, ui: &mut egui::Ui) {
@@ -21,11 +21,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui) {
         if widgets::segmented(ui, &mut view, &choices) {
             app.mods_view = if view == 0 { ModsView::Installed } else { ModsView::Browse };
         }
-        ui.add_space(space::M);
-        let text = app.tr.fill("mods.for_profile", &[("profile", &app.profile().name)]);
-        widgets::chip(ui, &text, color::ACCENT);
     });
-    ui.add_space(space::M);
     match app.mods_view {
         ModsView::Installed => installed_ui(app, ui),
         ModsView::Browse => browse::ui(app, ui),
@@ -34,25 +30,27 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui) {
 
 fn installed_ui(app: &mut App, ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
-        if Pill::new(Kind::Accent, app.tr.get("mods.import_zip")).icon(icons::FILE_ZIP).show(ui).clicked()
+        if Button::new(Kind::Secondary, app.tr.get("mods.import_zip")).show(ui).clicked()
             && let Some(file) = rfd::FileDialog::new().add_filter("zip", &["zip"]).pick_file()
         {
             import_from(app, &file);
         }
-        if Pill::new(Kind::Ghost, app.tr.get("mods.import_folder")).icon(icons::FOLDER_OPEN).show(ui).clicked()
+        if Button::new(Kind::Secondary, app.tr.get("mods.import_folder")).show(ui).clicked()
             && let Some(folder) = rfd::FileDialog::new().pick_folder()
         {
             import_from(app, &folder);
         }
-        if Pill::new(Kind::Ghost, app.tr.get("mods.open_folder")).icon(icons::ARROW_SQUARE_OUT).show(ui).clicked() {
+        if Button::new(Kind::Secondary, app.tr.get("mods.open_folder")).show(ui).clicked() {
             let dir = app.mods_dir();
             open_or_note(app, &dir);
         }
-        if icon_button(ui, icons::ARROWS_CLOCKWISE, app.tr.get("common.refresh")).clicked() {
-            app.reload_mods();
-        }
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if icon_button(ui, icons::ARROWS_CLOCKWISE, app.tr.get("common.refresh")).clicked() {
+                app.reload_mods();
+            }
+        });
     });
-    ui.add_space(space::M);
+    ui.add_space(space::L);
     let game = app.game_version();
     let ranges: HashMap<String, String> = app
         .index
@@ -63,32 +61,23 @@ fn installed_ui(app: &mut App, ui: &mut egui::Ui) {
     let problems = checks::check(&app.mods, game.as_deref(), &ranges);
     let updates = index_install::updates(&app.mods, &app.index, game.as_deref());
     if app.mods.is_empty() {
-        empty(ui, icons::PUZZLE, app.tr.get("mods.none"));
+        widgets::empty(ui, app.tr.get("mods.none"));
         return;
     }
     let mut action: Option<Action> = None;
+    widgets::hairline(ui);
     egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
         for package in &app.mods {
             let mine: Vec<&Problem> =
                 problems.iter().filter(|(f, _)| *f == package.file_name).map(|(_, p)| p).collect();
             let update = updates.iter().find(|u| u.id == package.id());
             row(app, ui, package, &mine, update.map(|u| u.available.as_str()), &mut action);
-            ui.add_space(space::S);
+            widgets::hairline(ui);
         }
     });
     if let Some(action) = action {
         run(app, ui.ctx(), action);
     }
-}
-
-/// A big faint icon and a line, for an empty list.
-pub fn empty(ui: &mut egui::Ui, glyph: &str, text: &str) {
-    ui.add_space(space::XXL);
-    ui.vertical_centered(|ui| {
-        ui.label(widgets::icon(glyph, 48.0, color::TEXT_FAINT));
-        ui.add_space(space::S);
-        ui.label(widgets::muted(text));
-    });
 }
 
 enum Action {
@@ -107,92 +96,90 @@ fn row(
     action: &mut Option<Action>,
 ) {
     let file = package.file_name.clone();
-    let outline = !problems.is_empty();
-    let response =
-        Card::new().padding(space::M).outline_if(outline, color::DANGER.gamma_multiply(0.6)).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                let mut enabled = package.enabled;
-                let name = package.manifest.as_ref().map_or(package.file_name.clone(), |m| m.name.clone());
-                let label = app
-                    .tr
-                    .fill(if package.enabled { "mods.disable_named" } else { "mods.enable_named" }, &[("name", &name)]);
-                let toggle = widgets::controls::switch_named(ui, &mut enabled, &label);
-                if toggle.changed() {
-                    *action = Some(if enabled { Action::Enable(file.clone()) } else { Action::Disable(file.clone()) });
-                }
-                ui.add_space(space::S);
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if icon_button(ui, icons::TRASH, &app.tr.fill("mods.remove_named", &[("name", &name)])).clicked() {
-                        *action = Some(Action::Remove(file.clone()));
-                    }
-                    if let Some(version) = update
-                        && Pill::new(Kind::Accent, &app.tr.fill("mods.update_to", &[("version", version)]))
-                            .icon(icons::DOWNLOAD)
-                            .show(ui)
-                            .clicked()
-                    {
-                        *action = Some(Action::Update(package.id().to_owned()));
-                    }
-                    let kind = app.tr.get(if package.packaging == Packaging::Zip {
-                        "mods.kind_zip"
-                    } else {
-                        "mods.kind_folder"
-                    });
-                    ui.label(widgets::faint(format!("{} · {kind}", package.id())));
-                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                        ui.vertical(|ui| {
-                            ui.spacing_mut().item_spacing.y = 2.0;
-                            match &package.manifest {
-                                Ok(manifest) => {
-                                    ui.horizontal(|ui| {
-                                        let tint = if package.enabled { color::TEXT } else { color::TEXT_MUTED };
-                                        widgets::one_line(ui, widgets::strong(&manifest.name, size::TITLE).color(tint));
-                                        ui.label(widgets::muted(&manifest.version).size(size::SMALL));
-                                    });
-                                    ui.horizontal_wrapped(|ui| {
-                                        if !manifest.author.is_empty() {
-                                            ui.label(
-                                                widgets::muted(app.tr.fill("mods.by", &[("author", &manifest.author)]))
-                                                    .size(size::SMALL),
-                                            );
-                                        }
-                                        if manifest.has_code() {
-                                            widgets::chip(ui, app.tr.get("mods.has_code"), color::WARN)
-                                                .on_hover_text(app.tr.get("mods.has_code_hint"));
-                                        }
-                                        if manifest.side != "both" {
-                                            widgets::chip(
-                                                ui,
-                                                &app.tr.fill("mods.side", &[("side", &manifest.side)]),
-                                                color::INFO,
-                                            );
-                                        }
-                                    });
+    let name = package.manifest.as_ref().map_or(package.file_name.clone(), |m| m.name.clone());
+    let top = ui.cursor().top();
+    ui.add_space(space::M);
+    ui.horizontal(|ui| {
+        let mut enabled = package.enabled;
+        let label =
+            app.tr.fill(if package.enabled { "mods.disable_named" } else { "mods.enable_named" }, &[("name", &name)]);
+        if widgets::switch_named(ui, &mut enabled, &label).changed() {
+            *action = Some(if enabled { Action::Enable(file.clone()) } else { Action::Disable(file.clone()) });
+        }
+        ui.add_space(space::S);
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if icon_button(ui, icons::TRASH, &app.tr.fill("mods.remove_named", &[("name", &name)])).clicked() {
+                *action = Some(Action::Remove(file.clone()));
+            }
+            if let Some(version) = update
+                && Button::new(Kind::Secondary, &app.tr.fill("mods.update_to", &[("version", version)]))
+                    .show(ui)
+                    .clicked()
+            {
+                *action = Some(Action::Update(package.id().to_owned()));
+            }
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                ui.vertical(|ui| {
+                    ui.spacing_mut().item_spacing.y = crate::theme::layout::LINE_GAP;
+                    let tint = if package.enabled { color::TEXT } else { color::TEXT_MUTED };
+                    match &package.manifest {
+                        Ok(manifest) => {
+                            ui.horizontal(|ui| {
+                                widgets::one_line(ui, widgets::strong(&manifest.name, size::BODY).color(tint));
+                                ui.label(widgets::small(&manifest.version));
+                                if manifest.has_code() {
+                                    widgets::tag(ui, app.tr.get("mods.has_code"), color::WARN)
+                                        .on_hover_text(app.tr.get("mods.has_code_hint"));
                                 }
-                                Err(_) => {
-                                    widgets::one_line(ui, widgets::strong(&package.file_name, size::TITLE));
-                                }
-                            }
-                        });
-                    });
+                            });
+                            widgets::one_line(ui, widgets::small(meta_line(app, package)));
+                        }
+                        Err(_) => {
+                            widgets::one_line(ui, widgets::strong(&package.file_name, size::BODY).color(tint));
+                        }
+                    }
                 });
             });
-            if let Ok(manifest) = &package.manifest
-                && !manifest.depends.is_empty()
-            {
-                ui.label(
-                    widgets::muted(app.tr.fill("mods.depends", &[("list", &manifest.depends.join(", "))]))
-                        .size(size::SMALL),
-                );
-            }
-            for problem in problems {
-                ui.horizontal(|ui| {
-                    ui.label(widgets::icon(icons::WARNING, 16.0, color::DANGER));
-                    ui.add(egui::Label::new(RichText::new(problem_text(app, problem)).color(color::DANGER)).wrap());
-                });
-            }
         });
-    probe::mark(ui.ctx(), format!("mod:{}", package.file_name), response.response.rect);
+    });
+    for problem in problems {
+        ui.horizontal(|ui| {
+            ui.add_space(theme_switch_width());
+            ui.label(widgets::icon(icons::WARNING, color::DANGER));
+            widgets::wrapped(ui, RichText::new(problem_text(app, problem)).size(size::SMALL).color(color::DANGER));
+        });
+    }
+    ui.add_space(space::M);
+    let rect = egui::Rect::from_x_y_ranges(ui.max_rect().x_range(), top..=ui.cursor().top());
+    probe::mark(ui.ctx(), format!("mod:{}", package.file_name), rect);
+}
+
+/// The indent of a row's text: the switch and the gap after it.
+fn theme_switch_width() -> f32 {
+    crate::theme::layout::SWITCH[0] + space::S * 2.0
+}
+
+/// "by Lilly · amber · folder · side: client · needs frost"
+fn meta_line(app: &App, package: &InstalledMod) -> String {
+    let mut parts = Vec::new();
+    if let Ok(manifest) = &package.manifest {
+        if !manifest.author.is_empty() {
+            parts.push(app.tr.fill("mods.by", &[("author", &manifest.author)]));
+        }
+        parts.push(manifest.id.clone());
+    }
+    parts.push(
+        app.tr.get(if package.packaging == Packaging::Zip { "mods.kind_zip" } else { "mods.kind_folder" }).to_owned(),
+    );
+    if let Ok(manifest) = &package.manifest {
+        if manifest.side != "both" {
+            parts.push(app.tr.fill("mods.side", &[("side", &manifest.side)]));
+        }
+        if !manifest.depends.is_empty() {
+            parts.push(app.tr.fill("mods.depends", &[("list", &manifest.depends.join(", "))]));
+        }
+    }
+    parts.join("  ·  ")
 }
 
 pub fn problem_text(app: &App, problem: &Problem) -> String {

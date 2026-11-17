@@ -1,4 +1,4 @@
-//! A profile's mods: reading `mod.json`, listing, enabling, removing, importing and checking.
+//! The game's mods: reading `mod.json`, listing, enabling, removing, importing and checking.
 
 pub mod checks;
 pub mod import;

@@ -1,4 +1,4 @@
-//! Getting a profile's game folder ready: the folder, `mods/`, the build's `assets/` linked in, `backend_url` set.
+//! Getting the game folder ready: the folder, `mods/`, the build's `assets/` linked in, `backend_url` set.
 
 use std::fs;
 use std::path::Path;

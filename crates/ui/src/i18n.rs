@@ -80,7 +80,7 @@ mod tests {
     fn both_languages_have_the_same_keys_and_no_empty_text() {
         let en = parse(source("en"));
         let de = parse(source("de"));
-        assert!(en.len() > 50, "{} keys", en.len());
+        assert!(en.len() > 100, "{} keys", en.len());
         let mut missing: Vec<&String> = en.keys().filter(|k| !de.contains_key(*k)).collect();
         missing.extend(de.keys().filter(|k| !en.contains_key(*k)));
         assert!(missing.is_empty(), "keys in one language only: {missing:?}");
@@ -108,7 +108,7 @@ mod tests {
         assert_eq!(strings.get("play.play"), "Spielen");
         assert_eq!(strings.get("no.such.key"), "no.such.key");
         assert_eq!(Strings::load("xx").get("play.play"), "Play");
-        let text = Strings::load("en").fill("play.exited", &[("code", "3"), ("seconds", "12")]);
-        assert!(text.contains('3') && text.contains("12"), "{text}");
+        let text = Strings::load("en").fill("log.exited", &[("code", "3"), ("time", "0:12")]);
+        assert!(text.contains('3') && text.contains("0:12"), "{text}");
     }
 }

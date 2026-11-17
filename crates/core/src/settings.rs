@@ -1,4 +1,6 @@
-//! `launcher.json`: the launcher's own settings.
+//! `launcher.json`: the launcher's settings and the options the game starts with.
+
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
@@ -8,12 +10,43 @@ use crate::paths::Paths;
 
 pub const DEFAULT_REPO: &str = "TerraNuxt/castanea";
 
-/// Where game builds come from.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum SourceConfig {
-    /// The releases of a GitHub repository, `owner/name`.
-    Github { repo: String },
+/// The game's renderer, through `CASTANEA_BACKEND` (docs/dev/wgpu-backend.md of the game).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Graphics {
+    /// The game's own setting decides.
+    #[default]
+    Auto,
+    Vulkan,
+    Wgpu,
+}
+
+impl Graphics {
+    pub const ALL: [Self; 3] = [Self::Auto, Self::Vulkan, Self::Wgpu];
+
+    pub fn env_value(self) -> Option<&'static str> {
+        match self {
+            Self::Auto => None,
+            Self::Vulkan => Some("vulkan"),
+            Self::Wgpu => Some("wgpu"),
+        }
+    }
+}
+
+/// How the game is started.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GameOptions {
+    /// The player name (`--name`).
+    pub player_name: String,
+    /// The relay backend, written into the game's `settings.json` as `backend_url`; empty leaves it alone.
+    pub backend_url: String,
+    pub graphics: Graphics,
+    /// `CASTANEA_WINDOW`, such as `1280x720`; empty for the game's default.
+    pub window: String,
+    /// More arguments, split like a shell does (quotes group words).
+    pub extra_args: String,
+    pub env: Vec<(String, String)>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,16 +54,17 @@ pub enum SourceConfig {
 pub struct Settings {
     /// `en`, `de`, or empty for the system language.
     pub language: String,
-    /// No network: only installed builds and the cached index.
+    /// No network: only the installed build and the cached index.
     pub offline: bool,
-    pub sources: Vec<SourceConfig>,
     /// Mod index locations: `https://` URLs or local files.
     pub indexes: Vec<String>,
-    pub last_profile: Option<String>,
-    /// Lines of game output the Play tab keeps.
+    /// Lines of game output the Output page keeps.
     pub log_lines: usize,
-    /// The system's window frame instead of the launcher's own title bar.
-    pub system_frame: bool,
+    /// The GitHub repository whose newest release is the game, `owner/name`.
+    pub repo: String,
+    pub game: GameOptions,
+    /// For people building the game from source: run this folder in place instead of the newest release.
+    pub dev_build: Option<PathBuf>,
 }
 
 impl Default for Settings {
@@ -38,11 +72,11 @@ impl Default for Settings {
         Self {
             language: String::new(),
             offline: false,
-            sources: vec![SourceConfig::Github { repo: DEFAULT_REPO.to_owned() }],
             indexes: Vec::new(),
-            last_profile: None,
             log_lines: 5000,
-            system_frame: false,
+            repo: DEFAULT_REPO.to_owned(),
+            game: GameOptions::default(),
+            dev_build: None,
         }
     }
 }
@@ -66,17 +100,22 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::portable(dir.path());
         let mut settings = Settings::load(&paths).unwrap();
-        assert_eq!(settings.sources, [SourceConfig::Github { repo: DEFAULT_REPO.to_owned() }]);
+        assert_eq!(settings.repo, DEFAULT_REPO);
         settings.language = "de".to_owned();
+        settings.game.graphics = Graphics::Wgpu;
+        settings.game.env.push(("RUST_LOG".to_owned(), "info".to_owned()));
         settings.indexes.push("https://example.org/index.json".to_owned());
         settings.save(&paths).unwrap();
         assert_eq!(Settings::load(&paths).unwrap(), settings);
     }
 
     #[test]
-    fn missing_keys_take_their_defaults() {
-        let settings: Settings = serde_json::from_str(r#"{"offline": true}"#).unwrap();
+    fn missing_and_old_keys_are_fine() {
+        let old = r#"{"offline": true, "sources": [{"kind": "github", "repo": "a/b"}], "last_profile": "x",
+            "system_frame": true}"#;
+        let settings: Settings = serde_json::from_str(old).unwrap();
         assert!(settings.offline);
         assert_eq!(settings.log_lines, 5000);
+        assert_eq!(settings.repo, DEFAULT_REPO);
     }
 }

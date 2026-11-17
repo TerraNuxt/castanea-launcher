@@ -1,222 +1,208 @@
 # castanea launcher: UI design
 
-The launcher's look: a slim icon sidebar on the left, a wide content area, a dark warm theme with a chestnut orange
-accent, rounded cards, generous spacing. Every colour, size and duration is a token in `crates/ui/src/theme.rs`; pages
-build on the components in `crates/ui/src/widgets/`. All pictures are drawn in code (the hero, the logo mark, the
-profile tiles); icons come from the Phosphor icon font (MIT), text from Inter (OFL), see `third_party/`.
+Clean and matte, like a well-made native settings app: flat solid surfaces, 1 px hairlines where things need to be
+apart, one muted accent used sparingly, one type family, few icons. No gradients, glow, shadows, tinted cards, icon
+bubbles or illustrations. Every colour, size and duration is a token in `crates/ui/src/theme.rs`; pages build on the
+components in `crates/ui/src/widgets/`. Text is Inter (OFL), icons are Phosphor line icons (MIT), see `third_party/`.
+Screenshots of every page: [screenshots/](screenshots/).
 
 ## Frame
 
-```
-+----+--------------------------------------------------------------------------+
-| ## | (logo) castanea launcher                     [progress] [offline]  _ [] X|  title bar (drag, double click maximises)
-+----+--------------------------------------------------------------------------+
-| H  |                                                                          |
-| M  |                         page content                                     |
-| P  |                                                                          |
-| V  |                                                                          |
-| O  |                                                                          |
-| N• |                                                                          |  N = notifications, • = unread badge
-| S  |                                                                          |
-| i  |                                                                          |
-|[>] |                                                                          |  green Play, pinned at the bottom
-+----+--------------------------------------------------------------------------+
-```
-
-Sidebar items (top): Home, Mods, Profiles, Game versions, Game output. Bottom: Notifications, Settings, About, Play. Each item is an
-icon with a tooltip and an AccessKit label; the active one has an accent pill and the filled icon. Ctrl+1 … Ctrl+8 open
-the pages in sidebar order, F5 plays, Ctrl+F searches mods, Esc closes a dialog or goes back.
-
-With "Use the system window frame" off (the default) the launcher draws its own title bar with minimise, maximise and
-close, and resize handles on the edges; on, the system frame is used and the title bar keeps only the status chips.
-
-## Home
+The window uses the system's frame (title bar, snapping and resizing as the platform does them). Inside it:
 
 ```
-  (mark) Welcome back, Anna!                                               
-+-------------------------------------------------------+  +---------------------+
-|  hero: sky gradient, hills, a chestnut, the profile    |  | NEWS          (org) |
-|        Survival                                        |  | title · date        |
-|        castanea 0.2.0 · world "lake"                   |  | body…               |
-|   [ (S) Survival     v ]          [✎]  [ ▶ Play ]     |  +---------------------+
-+-------------------------------------------------------+  | MODS          (vio) |
- (clock) Last played profiles                    3 profiles|  | 2 updates / featured|
-+-------------------------------------------------------+  | [Update all]        |
-| [S] Survival                       [▶ Play]  [⚙]       |  +---------------------+
-|     castanea 0.2.0 · world · 2 h ago                   |  | MULTIPLAYER   (blu) |
-+-------------------------------------------------------+  | [address] [Join]    |
-| [C] Creative test   (running, green outline)            |  | Open my world  (o)  |
-|     castanea 0.2.0 · menu · now  [Output] [■ Stop] [⚙] |  | relay: none         |
-+-------------------------------------------------------+  +---------------------+
- [ ⊞ Manage all profiles (orange) ] [ + Add mods (dark) ]   | SHORTCUTS     (grn) |
-                                                            +---------------------+
++----------------+---------------------------------------------------------------+
+| > Play         |                                                               |  sidebar 184 wide, BASE,
+|   Mods         |                     page content                              |  a hairline on its right
+|   Game output •|                     (32 margin at the sides, 24 at the top)   |  • = the game is running
+|   Settings     |                                                               |
+|                |                                                               |
+|                |                                                               |
+| Lade 0.3.0 43 %|                                                               |  a quiet line, only for a
+|   About        |                                                               |  download or offline mode
++----------------+---------------------------------------------------------------+
 ```
 
-The right column is 320 wide when the content is at least 960 wide; below that it collapses into a two column grid
-under the profile list (in the same scroll area). The hero is 36 % of the column height (150 to 260). A card for a running game
-gets a green outline, Output (the log page) and a red Stop. Profiles never run twice at once (they share a folder), but
-different profiles run side by side, each with its own log. So a running card offers Output where a "launch another"
-button would start a second copy in the same folder.
+Sidebar items are a line icon and a label, 32 high. The selected one is RAISED with semibold text; the others are
+muted and fade to HOVER under the pointer. Each item is a tab for screen readers. Ctrl+1 … Ctrl+5 open the pages in
+this order, F5 plays, Ctrl+F searches mods, Esc closes a question or leaves the mod details.
 
-## Mods: installed
+## Play (home)
 
 ```
- Mods                                   [ Installed | Browse ]   for profile Survival
- [Import zip…] [Import folder…] [Open mods folder] [↻]
-+--------------------------------------------------------------------------------+
-| (o) Amber 0.1.0 by Lilly          code · client        amber · folder  [↑][🗑]  |
-|     Needs: frost                                                               |
-|     ⚠ Needs frost, which is not installed.                                      |
-+--------------------------------------------------------------------------------+
+                                 castanea                         32 pt semibold
+
+                          +------------------------+
+                          |          Play          |              240 x 48, the accent
+                          +------------------------+
+                          ======------------------                2 px progress, only while downloading
+                 castanea 0.2.0  ·  up to date                    12 pt muted, one line
+                              Game output                         a quiet link, once the game has run
 ```
 
-`(o)` is a switch; turning a mod on asks first (the declared-contents dialog).
+The block sits a little above the middle of the page. The status line says one of:
 
-## Mods: browse and details
+| State | Line |
+|---|---|
+| checked, nothing newer | `castanea 0.2.0 · up to date` |
+| a newer release | `castanea 0.2.0 · update available, downloading 0.3.0 · 43 %` (Play still starts 0.2.0) |
+| downloaded while the game ran | `castanea 0.2.0 · 0.3.0 is downloaded and starts next time` |
+| swapping | `castanea 0.2.0 · installing 0.3.0…` (Play is off for that moment) |
+| offline | `castanea 0.2.0 · offline`; with nothing installed `Offline. Go online once to download the game.` |
+| check failed | `castanea 0.2.0 · could not check for updates` in the danger colour, the error as tooltip, and a Try again link |
+| local build folder | `Local build 0.9.0-dev` |
+| nothing installed, no release | `No game release is published yet.` |
 
-```
- [🔍 Search mods      ] [All tags v] (o) Only fitting  [↻]
-+-----------------------------+  +---------------------------------------------+
-| Amber          fits      ✓  |  | [icon] Amber                                 |
-| An amber block and its ore… |  |        amber · Lilly · MIT                   |
-+-----------------------------+  | #blocks #example  side: both                 |
-| Red moon      fit unknown   |  | +-----------------------------------------+ |
-| A blood red moon…           |  | | [Install 0.2.0]  4 KB  fits              | |
-+-----------------------------+  | | Downloads are checked against SHA-256…   | |
-                                 | +-----------------------------------------+ |
-                                 | description, links, screenshots, versions    |
-                                 +---------------------------------------------+
-```
+While the game runs the button is Stop (a secondary button: hairline outline, no fill) with the running time in a
+fixed-width slot after the label, so the label does not move as the seconds change.
 
-Below 760 wide the list and the details share one column: the details get a Back button.
-
-## Profiles
+## Mods
 
 ```
- Profiles                                                     [+ New profile]
-+---------------------+  +----------------------------------------------------+
-| [S] Survival      ● |  | General:  Name [        ]  Player [       ]        |
-| [C] Creative test   |  | Start in: [ Menu | A world | Join a server ]       |
-|                     |  |           world, seed, host port / address        |
-|                     |  | Game:     version [Newest (0.2.0) v]               |
-|                     |  | Graphics: [ Game setting | Vulkan | wgpu ] window  |
-|                     |  | Advanced: relay, extra arguments, environment     |
-|                     |  | [Open game folder]               [Remove profile]  |
-+---------------------+  +----------------------------------------------------+
+ Mods                                                   [ Installed | Browse ]
+ [Import zip…] [Import folder…] [Open mods folder]                         (↻)
+ ------------------------------------------------------------------------------
+ (o) Amber  0.1.0                                                          (🗑)
+     by Lilly · amber · folder · needs frost
+     ⚠ Needs frost, which is not installed.                       (danger text)
+ ------------------------------------------------------------------------------
+ ( ) Wasm hello  0.1.0  [contains code]                    [Update to 0.2.0] (🗑)
+     by Lilly · wasm_hello · folder
+ ------------------------------------------------------------------------------
 ```
 
-## Versions
+`(o)` is a switch; turning a mod on asks first (the declared-contents dialog). The tag `contains code` is the only
+coloured text in a row (WARN); problems are DANGER text with a warning icon.
+
+## Mods: browse
 
 ```
- Game versions                                  [Add folder…] [Search again]
-+--------------------------------------------------------------------------------+
-| (cube) 0.2.0   local folder · checked              [Open] [Remove]             |
-|        /path/to/build                                                          |
-+--------------------------------------------------------------------------------+
- Releases                                                              [↻]
-+--------------------------------------------------------------------------------+
-| castanea 0.3.0   pre-release · 2026-11-10                 [⬇ Download (12 MB)]  |
-| ▸ Release notes                                                                |
-+--------------------------------------------------------------------------------+
+ [⌕ Search mods        ] [All tags v]  (o) Only fitting mods                    (↻)
+ +--------------------------------+ | Amber
+ | Amber           installed fits | | amber · Lilly · MIT
+ | An amber block and its ore, …  | | [blocks] [example] [side: both]
+ +--------------------------------+ |
+   Red moon     installed fit unk.  | [Install 0.2.0]  4 KB · fits
+   A blood red moon that throws …   | Downloads are checked against the index's SHA-256 …
+                                    | description, links, screenshots
+                                    | Versions
+                                    | ----------------------------------------------
+                                    | 0.2.0  2026-11-10  game >=0.2.0, <0.4.0  fits
 ```
 
-## Settings
+The list is 320 wide, rows are 60 high; the selected row is RAISED. A hairline separates list and details. Below 720
+wide the page shows the list or the details with a Back button.
+
+## Game output
 
 ```
- Settings
-+-- General ------------------------------+  +-- Game sources ------------------+
-| Language        [System v]              |  | GitHub TerraNuxt/castanea  [🗑]   |
-| Offline mode    (o)                     |  | [owner/repository] [Add]        |
-| Window frame    (o) system frame        |  | token: …  [Save token]          |
-| Log lines       [5000]                  |  +---------------------------------+
-+-----------------------------------------+  +-- Mod indexes -------------------+
-+-- Folders ------------------------------+  | …                                |
-| Settings  path  [Open]                  |  +---------------------------------+
-+-----------------------------------------+
-```
-
-Two columns when the content is at least 960 wide, else one.
-
-## About
-
-```
- [mark] castanea launcher  0.1.0
- text, link, licence line (Inter OFL, Phosphor MIT)
- +-- Keyboard ----------+  +-- Safety -------------------+
- | Ctrl+1…8  pages      |  | HTTPS only, SHA-256, …      |
- +----------------------+  +-----------------------------+
-```
-
-## Game output (log)
-
-```
- Game output     [Survival ●] [Creative test]           [Copy] [Open log folder]
- +-- status: running (process 4242) / ended normally / crashed, with reports ---+
- | castanea 0.2.0 starting in …                                                 |
- | warning: …                                                                   |
+ Game output                                            [Copy] [Open log folder]
+ Running for 4:05 (process 4242)                                          [Stop]
+ /…/data/build/current/castanea --name Anna                       (mono, muted)
+ +------------------------------------------------------------------------------+
+ | castanea 0.2.0 starting in …                                     (BASE, mono) |
+ | warning: …                                                         (WARN)     |
  +------------------------------------------------------------------------------+
 ```
 
-Lines with `error` or `panic` are red; the view sticks to the bottom.
+After the end: `Ended normally after 4:05 (exit code 0)`, or `Crashed after 0:12 (exit code 101)` in DANGER with each
+crash report and a Show report link. Lines with `error` or `panic` are DANGER, `warn` WARN; the view sticks to the
+bottom.
 
-## Notifications
+## Settings
+
+One column, at most 720 wide; a label column of 220 (label and a muted hint below it) and the control on the right;
+a hairline under each row.
 
 ```
- Notifications                                                   [Clear all]
- +-- (i) Installed amber. It is disabled until you enable it.    12:04  [x] --+
- +-- (!) index.json: not found                                    12:01  [x] --+
+ Settings
+ General
+ ------------------------------------------------------------------
+ Language                         [English              v]
+ ------------------------------------------------------------------
+ Offline mode                     ( )
+ No update checks and no …
+ ------------------------------------------------------------------
+ Game
+ ------------------------------------------------------------------
+ Player name                      [Anna                  ]
+ Relay server                     [https://              ]     backend_url
+ Graphics backend                 [ Game setting | Vulkan | wgpu ]
+ Window size                      [1280x720              ]
+ Extra arguments                  [                      ]
+ Environment                      [NAME     ] [value    ] (x)   [Add variable]
+ Game folder  /…/data/game        [Open]
+ Mod indexes
+ ------------------------------------------------------------------
+ /…/docs/examples/index.json                                 (🗑)
+ [https://…/index.json         ] [Add] [Local file…]
+ > Advanced                                       (closed by default)
+   Local build folder             [Choose…] [Use releases]
+   GitHub token                   [github_pat_…   ] [Save]
+   Output lines kept              [5000]
+   Settings / Data / Cache folder [Open]
 ```
 
-New notes also show for 5 seconds as a toast at the bottom right (slides in, fades out); the bell shows the unread count.
+Opening Advanced scrolls it into view.
+
+## About
+
+Name, version, one sentence, the repository link, the licence and font credits; Keyboard (rows of keys and what they
+do); Safety (one paragraph). Same column as Settings.
 
 ## Components
 
-| Component | Where | Notes |
-|---|---|---|
-| card | everywhere | `surface` fill, `radius.l`, optional accent stripe on top (right column) or outline (running) |
-| pill button | Play, Stop, Install, actions | variants: play (green), danger (red), accent (orange), ghost (dark); icon + text; hover lightens, press darkens and shrinks by 1 px |
-| icon button | gear, edit, remove, window controls | square, `radius.m`, tooltip = AccessKit label |
-| sidebar item | sidebar | 44 px square, accent pill on the left when active, filled icon, badge |
-| hero | home | procedural sky, sun, three hill layers, a chestnut; colours from the profile id |
-| list row | mods, versions, releases, browse | card with a title line, a muted line and actions on the right |
-| switch | settings, mods | animated knob, AccessKit check box |
-| segmented control | mods views, profile options | one pill per choice |
-| chip | tags, status | small rounded label |
-| toast / notification | bottom right / notifications page | colour by kind, slide and fade |
-| dialog | confirmations | dimmed backdrop, card in the middle, Esc cancels, Enter confirms |
-| text field | search, settings | sunken fill, focus ring in the accent |
+| Component | Notes |
+|---|---|
+| primary button | ACCENT fill, white semibold text, radius 5, 32 high (Play: 240 x 48, 18 pt); hover and press darken in 120 ms. Once per view at most |
+| secondary button | no fill, 1 px BORDER_STRONG outline, TEXT; HOVER and PRESSED fills |
+| danger button | DANGER_FILL, white text; only in the remove question |
+| quiet link | muted text, TEXT under the pointer; Game output, Try again, Show report |
+| icon button | 32 square, a line icon, no fill until hovered; the tooltip is its name for screen readers |
+| sidebar item | icon and label, 32 high, RAISED when selected |
+| switch | 32 x 18 track: RAISED with a hairline when off, ACCENT when on; the knob slides in 120 ms |
+| segmented control | a hairline outline, the selected part RAISED with TEXT, the others muted |
+| text field | BASE fill, hairline outline, the accent outline when focused |
+| tag | small muted text in a hairline outline |
+| settings row | label column 220, control right, hairline below |
+| dialog | RAISED, BORDER_STRONG hairline, radius 5, no shadow, a flat dimmed backdrop; Esc cancels, Enter confirms |
+| toast | RAISED with a hairline, bottom right, no animation; 6 s (errors 10 s, DANGER text); a click dismisses it |
+| focus ring | 1.5 px ACCENT, 2 px outside the control |
 
 ## Tokens
 
-Colours (`theme::Palette`):
+Colours (`theme::color`):
 
 | Token | Value | Use |
 |---|---|---|
-| `bg` | `#131110` | content background |
-| `sidebar` | `#0c0b0a` | sidebar and title bar |
-| `surface` | `#1d1a18` | cards |
-| `surface_hover` | `#262320` | hovered cards and ghost buttons |
-| `sunken` | `#151312` | text fields, log |
-| `border` | `#2f2a26` | card outline |
-| `text` | `#f3ede7` | text |
-| `text_muted` | `#a69c93` | second lines |
-| `text_faint` | `#6e655e` | hints |
-| `accent` | `#e07a2f` | chestnut orange: active item, links, focus |
-| `accent_strong` | `#b85a1c` | gradients, pressed |
-| `play` | `#2faa58` | Play, running |
-| `danger` | `#d6453b` | Stop, remove, errors |
-| `warn` | `#e5ad48` | warnings |
-| `info` | `#4b8fe0` | multiplayer card, info notes |
-| `violet` | `#8a6ad8` | mods card |
-| `teal` | `#2aa596` | shortcuts card |
+| `BASE` | `#131211` | sidebar, log, fields |
+| `BG` | `#191817` | page background |
+| `RAISED` | `#22211f` | selected item, dialogs, toasts, switch track |
+| `HOVER` / `PRESSED` | `#292725` / `#302e2b` | pointer feedback |
+| `BORDER` | `#2e2c29` | hairlines |
+| `BORDER_STRONG` | `#45423e` | outlines of buttons, dialogs, the off switch |
+| `TEXT` | `#ebe7e3` | text |
+| `TEXT_MUTED` | `#a39d97` | second lines, hints, status |
+| `TEXT_DISABLED` | `#66615c` | disabled controls only |
+| `ACCENT` | `#a3602f` | muted chestnut: Play, Install, switch on, focus, progress |
+| `ACCENT_HOVER` / `ACCENT_PRESSED` | `#96582b` / `#885027` | the primary button under the pointer |
+| `ON_ACCENT` | `#ffffff` | text on the accent and on DANGER_FILL |
+| `DANGER` | `#e0786c` | error and crash text |
+| `DANGER_FILL` | `#8f3a32` | the remove button in its question |
+| `WARN` | `#d6ae5e` | `contains code`, warnings in the log |
 
-Spacing scale `space::{XS 4, S 8, M 12, L 16, XL 24, XXL 32}`; radii `radius::{S 6, M 10, L 14, PILL 255}`; text sizes
-`size::{CAPTION 12, SMALL 13, BODY 14.5, BUTTON 15, TITLE 17, HEADING 22, DISPLAY 28}`; durations `anim::{HOVER 0.12,
-PRESS 0.08, PAGE 0.16, TOAST 5 s}`; layout `layout::{SIDEBAR 72, TITLE_BAR 38, RIGHT_COLUMN 320, WIDE 960, MIN 1000x640}`.
+All text colours meet WCAG AA (4.5:1) on BASE, BG, RAISED and HOVER, white meets it on the accent fills, and the
+accent has 3:1 against the surfaces for focus rings; `theme::tests` checks this.
+
+Spacing `space::{XS 4, S 8, M 12, L 16, XL 24, XXL 32}`; radius `radius::{M 5, S 4}` (and full for the switch); text
+`size::{SMALL 12, BODY 14, TITLE 18, DISPLAY 32}` in Inter regular and semibold (the log and the command line use
+the monospace font at 12); icons 16; lines `line::{HAIRLINE 1, FOCUS 1.5, PROGRESS 2}`; durations
+`anim::{HOVER 0.12, TOAST 6 s, TOAST_ERROR 10 s}`; layout `layout::{SIDEBAR 184, CONTROL 32, PLAY 240x48, READABLE
+720, LABEL 220, FIELD 320, LIST 320, NARROW 720, MIN 1000x640}`.
 
 ## Performance rules
 
-- No continuous repaint when idle: animations use `animate_bool_with_time`, which repaints only while moving; toasts ask
-  for one repaint when they expire; a running game or a job repaints at 4 Hz.
-- The hero is a few hundred vertices built per frame only when a frame is drawn.
-- A test checks that an idle frame asks for no repaint.
+- No repaint when idle: hover, press, switch and segment fades use `animate_bool_with_time`, which repaints only
+  while moving; there are no other animations. A toast asks for one repaint when it expires; a running game or a job
+  repaints at 4 Hz (the log, the progress, the running time).
+- A test checks that an idle frame asks for no repaint, on every page.

@@ -1,27 +1,27 @@
-//! `--screenshots <dir>`: walks through the pages at two window sizes, saves one PNG per view, then closes. For
-//! docs/screenshots (tools/screenshots.sh).
+//! `--screenshots <dir>`: walks through the pages, saves one PNG per view, then closes. For docs/screenshots
+//! (tools/screenshots.sh). The update states are set directly, so no network is needed.
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use eframe::egui;
 
-use crate::app::{App, Confirm, ModsView, Page};
+use crate::app::{App, ModsView, Page};
+use crate::game::Update;
+use crate::jobs::{self, Progress};
 
-const BIG: [f32; 2] = [1280.0, 720.0];
-const SMALL: [f32; 2] = [1000.0, 640.0];
+const SIZE: [f32; 2] = [1280.0, 720.0];
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Wait {
     /// No job and no game.
     Idle,
-    /// A game is running.
+    /// The game is running.
     Running,
 }
 
 struct Step {
     name: &'static str,
-    size: [f32; 2],
     wait: Wait,
     setup: fn(&mut App),
 }
@@ -33,68 +33,94 @@ fn language(app: &mut App, code: &str) {
     }
 }
 
-const STEPS: [Step; 16] = [
-    Step { name: "home", size: BIG, wait: Wait::Idle, setup: |app| app.go(Page::Home) },
-    Step { name: "home-de", size: BIG, wait: Wait::Idle, setup: |app| language(app, "de") },
-    Step { name: "home-1000", size: SMALL, wait: Wait::Idle, setup: |app| language(app, "en") },
-    Step { name: "home-1000-de", size: SMALL, wait: Wait::Idle, setup: |app| language(app, "de") },
+fn downloading(app: &mut App) {
+    app.update = Update::Downloading { version: "0.3.0".to_owned() };
+    let progress = Progress { label: "0.3.0".to_owned(), done: 43, total: Some(100) };
+    jobs::set(&app.update_progress, Some(progress));
+}
+
+fn up_to_date(app: &mut App) {
+    app.update = Update::UpToDate;
+    jobs::set(&app.update_progress, None);
+}
+
+const STEPS: [Step; 14] = [
+    Step {
+        name: "home",
+        wait: Wait::Idle,
+        setup: |app| {
+            up_to_date(app);
+            app.go(Page::Home);
+        },
+    },
+    Step { name: "home-de", wait: Wait::Idle, setup: |app| language(app, "de") },
+    Step {
+        name: "home-update",
+        wait: Wait::Idle,
+        setup: |app| {
+            language(app, "en");
+            downloading(app);
+        },
+    },
+    Step { name: "home-update-de", wait: Wait::Idle, setup: |app| language(app, "de") },
     Step {
         name: "home-running",
-        size: BIG,
         wait: Wait::Running,
         setup: |app| {
             language(app, "en");
+            up_to_date(app);
             app.play();
         },
     },
-    Step { name: "log", size: BIG, wait: Wait::Running, setup: |app| app.go(Page::Log) },
+    Step { name: "home-running-de", wait: Wait::Running, setup: |app| language(app, "de") },
     Step {
-        name: "mods-installed",
-        size: BIG,
+        name: "output",
+        wait: Wait::Running,
+        setup: |app| {
+            language(app, "en");
+            app.go(Page::Log);
+        },
+    },
+    Step {
+        name: "home-offline",
         wait: Wait::Idle,
         setup: |app| {
-            let id = app.profile_id.clone();
-            app.stop(&id);
+            app.stop();
+            app.settings.offline = true;
+            app.update = Update::Offline;
+            app.go(Page::Home);
+        },
+    },
+    Step { name: "home-offline-de", wait: Wait::Idle, setup: |app| language(app, "de") },
+    Step {
+        name: "mods-installed",
+        wait: Wait::Idle,
+        setup: |app| {
+            language(app, "en");
+            app.settings.offline = false;
+            up_to_date(app);
             app.mods_view = ModsView::Installed;
             app.go(Page::Mods);
         },
     },
     Step {
-        name: "mods-enable",
-        size: BIG,
-        wait: Wait::Idle,
-        setup: |app| {
-            app.confirm =
-                app.mods.iter().find(|m| !m.enabled).map(|m| Confirm::EnableMod { file_name: m.file_name.clone() });
-        },
-    },
-    Step {
         name: "mods-browse",
-        size: BIG,
         wait: Wait::Idle,
         setup: |app| {
-            app.confirm = None;
             app.mods_view = ModsView::Browse;
-            app.browse.selected = app.index.mods.first().map(|m| m.id.clone());
+            app.browse.selected = Some("amber".to_owned());
         },
     },
-    Step { name: "mods-browse-1000", size: SMALL, wait: Wait::Idle, setup: |_| {} },
-    Step { name: "profiles", size: BIG, wait: Wait::Idle, setup: |app| app.go(Page::Profiles) },
-    Step { name: "versions", size: BIG, wait: Wait::Idle, setup: |app| app.go(Page::Versions) },
-    Step { name: "settings", size: BIG, wait: Wait::Idle, setup: |app| app.go(Page::Settings) },
-    Step { name: "settings-1000", size: SMALL, wait: Wait::Idle, setup: |_| {} },
+    Step { name: "settings", wait: Wait::Idle, setup: |app| app.go(Page::Settings) },
     Step {
-        name: "notifications",
-        size: BIG,
+        name: "settings-advanced",
         wait: Wait::Idle,
         setup: |app| {
-            let text = app.tr.fill("mods.installed_disabled", &[("id", "frost")]);
-            app.info(text);
-            app.error("index.json: https://mods.example.org/index.json: connection refused");
-            app.go(Page::Notifications);
+            app.advanced_open = true;
+            app.reveal_advanced = true;
         },
     },
-    Step { name: "about", size: BIG, wait: Wait::Idle, setup: |app| app.go(Page::About) },
+    Step { name: "about", wait: Wait::Idle, setup: |app| app.go(Page::About) },
 ];
 
 pub struct Shots {
@@ -124,14 +150,14 @@ impl Shots {
         };
         if self.frames == 0 {
             (step.setup)(app);
-            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(step.size[0], step.size[1])));
+            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(SIZE[0], SIZE[1])));
         }
         self.frames += 1;
         let size = ctx.content_rect().size();
-        let sized = (size.x - step.size[0]).abs() < 1.0 && (size.y - step.size[1]).abs() < 1.0;
+        let sized = (size.x - SIZE[0]).abs() < 1.0 && (size.y - SIZE[1]).abs() < 1.0;
         let ready = match step.wait {
-            Wait::Idle => app.jobs.running == 0 && !app.any_running(),
-            Wait::Running => app.any_running(),
+            Wait::Idle => app.jobs.running == 0 && !app.is_running(),
+            Wait::Running => app.is_running(),
         };
         if self.frames > 40 && sized && ready && !self.requested {
             self.requested = true;

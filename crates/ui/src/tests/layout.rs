@@ -5,6 +5,7 @@ use eframe::egui::{self, Rect};
 
 use super::{Harness, SIZES};
 use crate::app::{ModsView, Page};
+use crate::game::Update;
 use crate::probe;
 
 struct Shot(Vec<(String, Rect)>);
@@ -44,6 +45,12 @@ fn disjoint(context: &str, regions: &[(String, Rect)]) {
     }
 }
 
+fn all_inside(context: &str, regions: &[(String, Rect)], outer: Rect) {
+    for (name, rect) in regions {
+        assert!(inside(*rect, outer), "{context}: {name} {rect:?} leaves {outer:?}");
+    }
+}
+
 fn shoot(h: &mut Harness) -> Shot {
     h.draw();
     Shot(probe::take(&h.ctx))
@@ -54,68 +61,46 @@ fn named(shot: &Shot, names: &[&str]) -> Vec<(String, Rect)> {
 }
 
 #[test]
-fn frame_and_home_regions_do_not_overlap() {
-    for size in SIZES {
-        let mut h = Harness::new("de");
-        h.size = egui::vec2(size[0], size[1]);
-        let screen = Rect::from_min_size(egui::Pos2::ZERO, h.size);
-        h.go(Page::Home);
-        let shot = shoot(&mut h);
-        let context = format!("{size:?}");
-        let frame = named(&shot, &["title_bar", "sidebar", "content"]);
-        disjoint(&context, &frame);
-        for (name, rect) in &frame {
-            assert!(inside(*rect, screen), "{context}: {name} {rect:?} leaves the window");
-        }
-        let sidebar = shot.get("sidebar");
-        let nav = shot.starting("nav:");
-        assert_eq!(nav.len(), Page::ALL.len() + 1, "{context}: every page and Play in the sidebar");
-        for (name, rect) in &nav {
-            assert!(inside(*rect, sidebar), "{context}: {name} {rect:?} leaves the sidebar {sidebar:?}");
-        }
-        disjoint(&context, &nav);
+fn the_frame_and_the_home_page_hold_together() {
+    for language in ["en", "de"] {
+        for size in SIZES {
+            let mut h = Harness::new(language);
+            h.size = egui::vec2(size[0], size[1]);
+            let screen = Rect::from_min_size(egui::Pos2::ZERO, h.size);
+            for state in [Update::UpToDate, Update::Downloading { version: "0.3.0".into() }, Update::Failed("x".into())]
+            {
+                h.app.update = state.clone();
+                h.go(Page::Home);
+                let shot = shoot(&mut h);
+                let context = format!("{language} {size:?} {state:?}");
+                let frame = named(&shot, &["sidebar", "content"]);
+                disjoint(&context, &frame);
+                all_inside(&context, &frame, screen);
+                let nav = shot.starting("nav:");
+                assert_eq!(nav.len(), Page::ALL.len(), "{context}: every page in the sidebar");
+                all_inside(&context, &nav, shot.get("sidebar"));
+                disjoint(&context, &nav);
 
-        let content = shot.get("content");
-        let wide = shot.find("home:right").is_some();
-        assert_eq!(
-            wide,
-            content.width() >= crate::theme::layout::WIDE,
-            "{context}: the right column folds when narrow"
-        );
-        let regions = named(&shot, &["home:welcome", "home:hero", "home:list", "home:actions", "home:right"]);
-        assert!(regions.len() >= 4, "{context}: {:?}", shot.names());
-        for (name, rect) in &regions {
-            assert!(inside(*rect, content), "{context}: {name} {rect:?} leaves the content {content:?}");
-        }
-        disjoint(&context, &regions);
-        let hero = shot.get("home:hero");
-        for name in ["home:hero:play", "home:hero:edit"] {
-            assert!(inside(shot.get(name), hero), "{context}: {name} leaves the hero");
-        }
-        disjoint(&context, &named(&shot, &["home:hero:play", "home:hero:edit"]));
-
-        let cards: Vec<(String, Rect)> =
-            shot.starting("card:").into_iter().filter(|(n, _)| n.matches(':').count() == 1).collect();
-        assert_eq!(cards.len(), 2, "{context}: one card per profile");
-        disjoint(&context, &cards);
-        for (card, rect) in &cards {
-            let parts = shot.starting(&format!("{card}:"));
-            assert!(parts.len() >= 3, "{context}: {card} has text and buttons: {parts:?}");
-            for (name, part) in &parts {
-                assert!(inside(*part, *rect), "{context}: {name} {part:?} leaves {card} {rect:?}");
+                let content = shot.get("content");
+                let home = named(&shot, &["home:wordmark", "home:play", "home:status", "home:links"]);
+                assert!(home.len() >= 3, "{context}: {:?}", shot.names());
+                all_inside(&context, &home, content);
+                disjoint(&context, &home);
+                for (name, rect) in &home {
+                    let off = (rect.center().x - content.center().x).abs();
+                    assert!(off < 1.0, "{context}: {name} is {off} off the centre");
+                }
+                let play = shot.get("home:play");
+                assert!(play.top() > content.top() + content.height() * 0.2, "{context}: the button sits mid page");
             }
-            disjoint(&context, &parts);
         }
-        let side_cards = shot.starting("home:card:");
-        assert_eq!(side_cards.len(), 4, "{context}: four cards on the right or under the list");
-        disjoint(&context, &side_cards);
     }
 }
 
 #[test]
-fn page_columns_do_not_overlap() {
+fn page_regions_do_not_overlap() {
     for size in SIZES {
-        let mut h = Harness::new("en");
+        let mut h = Harness::new("de");
         h.size = egui::vec2(size[0], size[1]);
         let context = format!("{size:?}");
 
@@ -127,25 +112,57 @@ fn page_columns_do_not_overlap() {
         let columns = named(&shot, &["browse:list", "browse:details"]);
         assert!(!columns.is_empty(), "{context}: {:?}", shot.names());
         disjoint(&context, &columns);
-        for (name, rect) in &columns {
-            assert!(inside(*rect, content), "{context}: {name} {rect:?} leaves the content {content:?}");
-        }
-
-        h.go(Page::Profiles);
-        let shot = shoot(&mut h);
-        disjoint(&context, &named(&shot, &["profiles:list", "profiles:editor"]));
-
-        h.go(Page::Settings);
-        let shot = shoot(&mut h);
-        let sections = shot.starting("settings:");
-        assert_eq!(sections.len(), 4, "{context}: {:?}", shot.names());
-        disjoint(&context, &sections);
+        all_inside(&context, &columns, content);
+        let rows = shot.starting("browse:row:");
+        disjoint(&context, &rows);
 
         h.app.mods_view = ModsView::Installed;
-        h.go(Page::Mods);
         let shot = shoot(&mut h);
         let rows = shot.starting("mod:");
         assert_eq!(rows.len(), 2, "{context}: {:?}", shot.names());
         disjoint(&context, &rows);
+        all_inside(&context, &rows, shot.get("content"));
+
+        h.app.advanced_open = true;
+        h.go(Page::Settings);
+        let shot = shoot(&mut h);
+        let groups = shot.starting("settings:");
+        assert_eq!(groups.len(), 4, "{context}: {:?}", shot.names());
+        disjoint(&context, &groups);
+        all_inside_x(&context, &groups, shot.get("content"));
+
+        h.go(Page::About);
+        let shot = shoot(&mut h);
+        let groups = shot.starting("about:");
+        assert_eq!(groups.len(), 3, "{context}: {:?}", shot.names());
+        disjoint(&context, &groups);
+        all_inside_x(&context, &groups, shot.get("content"));
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn the_output_page_holds_its_status_above_the_log() {
+    for size in SIZES {
+        let mut h = Harness::new("en");
+        h.size = egui::vec2(size[0], size[1]);
+        h.app.play();
+        h.go(Page::Log);
+        let shot = shoot(&mut h);
+        let context = format!("{size:?}");
+        let regions = named(&shot, &["log:status", "log:view"]);
+        assert_eq!(regions.len(), 2, "{context}: {:?}", shot.names());
+        disjoint(&context, &regions);
+        all_inside(&context, &regions, shot.get("content"));
+        h.app.stop();
+    }
+}
+
+/// For regions in a scroll area: they stay inside `outer` from left to right and start below its top.
+fn all_inside_x(context: &str, regions: &[(String, Rect)], outer: Rect) {
+    for (name, rect) in regions {
+        let fits =
+            rect.left() >= outer.left() - 0.5 && rect.right() <= outer.right() + 0.5 && rect.top() >= outer.top();
+        assert!(fits, "{context}: {name} {rect:?} leaves {outer:?} sideways");
     }
 }

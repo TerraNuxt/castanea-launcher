@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Takes the docs/screenshots PNGs on a Linux host: a demo launcher home, a fake game, a private Xvfb display,
-# software Vulkan (lavapipe). No window reaches the real desktop. Run from the repo root inside tools/shell.nix:
+# Takes the docs/screenshots PNGs on a Linux host: a demo launcher home with a fake installed game, a private Xvfb
+# display, software Vulkan (lavapipe). No window reaches the real desktop. Run from the repo root inside tools/shell.nix:
 #   nix-shell tools/shell.nix --run "tools/screenshots.sh target/release/castanea-launcher docs/screenshots"
 set -euo pipefail
 BIN=$(realpath "$1")
@@ -16,10 +16,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# A fake game build: assets/ and a binary that prints a plausible start log.
-GAME=$DEMO/castanea-0.2.0
+# The launcher's home with the fake game installed as the current release, three mods and the example index.
+HOME_DIR=$DEMO/home
+GAME=$HOME_DIR/data/build/current
 mkdir -p "$GAME/assets/engine"
-echo "0.2.0" > "$GAME/version.txt"
+cat > "$GAME/install.json" <<'EOF'
+{ "version": "0.2.0", "tag": "v0.2.0", "asset": "castanea-0.2.0-x86_64-unknown-linux-gnu.zip", "sha256": null }
+EOF
 cat > "$GAME/castanea" <<'EOF'
 #!/bin/sh
 echo "castanea 0.2.0 starting in $(pwd)"
@@ -33,10 +36,7 @@ echo "world loaded, 54 chunks in 0.8 s"
 exec sleep 60
 EOF
 chmod +x "$GAME/castanea"
-
-# The launcher's home with one profile, three mods and the example index.
-HOME_DIR=$DEMO/home
-MODS=$HOME_DIR/data/instances/default/mods
+MODS=$HOME_DIR/data/game/mods
 mkdir -p "$MODS/.disabled" "$HOME_DIR/config"
 for id in amber redmoon; do
     mkdir -p "$MODS/$id"
@@ -45,26 +45,17 @@ done
 mkdir -p "$MODS/.disabled/wasm_hello"
 cp "$ROOT/crates/core/tests/fixtures/game-mods/wasm_hello/mod.json" "$MODS/.disabled/wasm_hello/"
 cat > "$HOME_DIR/config/launcher.json" <<EOF
-{ "language": "en", "offline": false, "sources": [], "indexes": ["$ROOT/docs/examples/index.json"] }
-EOF
-NOW=$(date +%s)
-cat > "$HOME_DIR/config/profiles.json" <<EOF
-{ "profiles": [
-  { "id": "default", "name": "Survival", "start": { "kind": "world", "name": "lake", "seed": "0x5eed", "host_port": null },
-    "player_name": "Anna", "graphics": "vulkan", "last_played": $((NOW - 7200)) },
-  { "id": "creative", "name": "Creative test", "extra_args": "--gamemode creative", "last_played": $((NOW - 3 * 86400)) },
-  { "id": "friends", "name": "Friends server", "start": { "kind": "join", "address": "10.0.0.5:47800" },
-    "player_name": "Anna", "last_played": $((NOW - 600)) }
-] }
+{ "language": "en", "offline": false, "indexes": ["$ROOT/docs/examples/index.json"],
+  "game": { "player_name": "Anna", "graphics": "vulkan" } }
 EOF
 
-# No window manager: the launcher draws its own frame, and nothing reaches the real desktop.
+# A display of our own: nothing reaches the real desktop. The shots are taken from inside the launcher.
 Xvfb ":$DISPLAY_NUMBER" -screen 0 1280x800x24 -nolisten tcp >/dev/null 2>&1 &
 XVFB_PID=$!
 sleep 1
 mkdir -p "$OUT"
 env -u WAYLAND_DISPLAY DISPLAY=":$DISPLAY_NUMBER" \
-    HOME="$DEMO" CASTANEA_LAUNCHER_HOME="$HOME_DIR" CASTANEA_GAME_DIR="$GAME" \
+    HOME="$DEMO" CASTANEA_LAUNCHER_HOME="$HOME_DIR" \
     VK_ICD_FILENAMES=/run/opengl-driver/share/vulkan/icd.d/lvp_icd.x86_64.json WGPU_BACKEND=vulkan \
     LANG=en_US.UTF-8 \
     "$BIN" --screenshots "$OUT"

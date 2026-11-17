@@ -52,24 +52,22 @@ impl Paths {
         self.config.join("launcher.json")
     }
 
-    pub fn profiles_file(&self) -> PathBuf {
-        self.config.join("profiles.json")
-    }
-
-    pub fn installs_file(&self) -> PathBuf {
-        self.config.join("installs.json")
-    }
-
     pub fn token_file(&self) -> PathBuf {
         self.config.join("github-token")
     }
 
-    pub fn versions(&self) -> PathBuf {
-        self.data.join("versions")
+    /// The one game folder: the game's working directory with saves, settings, mods and logs.
+    pub fn game(&self) -> PathBuf {
+        self.data.join("game")
     }
 
-    pub fn instances(&self) -> PathBuf {
-        self.data.join("instances")
+    pub fn mods(&self) -> PathBuf {
+        self.game().join("mods")
+    }
+
+    /// The installed release lives in `build/current`; `next` and `previous` exist only during an update.
+    pub fn build(&self) -> PathBuf {
+        self.data.join("build")
     }
 
     pub fn index_cache(&self) -> PathBuf {
@@ -103,7 +101,7 @@ mod tests {
     fn portable_puts_everything_below_one_root() {
         let paths = Paths::portable(Path::new("/x"));
         assert_eq!(paths.settings_file(), Path::new("/x/config/launcher.json"));
-        assert_eq!(paths.versions(), Path::new("/x/data/versions"));
+        assert_eq!(paths.mods(), Path::new("/x/data/game/mods"));
         assert_eq!(paths.index_cache(), Path::new("/x/cache/index"));
     }
 
