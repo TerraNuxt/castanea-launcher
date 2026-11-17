@@ -5,7 +5,7 @@
 set -euo pipefail
 BIN=$(realpath "$1")
 OUT=$(realpath -m "$2")
-DISPLAY_NUMBER=${SCREENSHOT_DISPLAY:-92}
+DISPLAY_NUMBER=${SCREENSHOT_DISPLAY:-91}
 ROOT=$(pwd)
 DEMO=$(mktemp -d /tmp/launcher-shots.XXXXXX)
 XVFB_PID=
@@ -29,7 +29,8 @@ echo "loading assets: 1843 files, 12 layers"
 echo "world: new seed 0x5eed, spawn at 12 71 -40"
 echo "server tick 20 Hz, 8 worker threads"
 echo "warning: no audio device, sound is off" >&2
-echo "saved world, bye"
+echo "world loaded, 54 chunks in 0.8 s"
+exec sleep 60
 EOF
 chmod +x "$GAME/castanea"
 
@@ -46,14 +47,18 @@ cp "$ROOT/crates/core/tests/fixtures/game-mods/wasm_hello/mod.json" "$MODS/.disa
 cat > "$HOME_DIR/config/launcher.json" <<EOF
 { "language": "en", "offline": false, "sources": [], "indexes": ["$ROOT/docs/examples/index.json"] }
 EOF
-cat > "$HOME_DIR/config/profiles.json" <<'EOF'
+NOW=$(date +%s)
+cat > "$HOME_DIR/config/profiles.json" <<EOF
 { "profiles": [
   { "id": "default", "name": "Survival", "start": { "kind": "world", "name": "lake", "seed": "0x5eed", "host_port": null },
-    "player_name": "Anna", "graphics": "vulkan" },
-  { "id": "creative", "name": "Creative test", "extra_args": "--gamemode creative" }
+    "player_name": "Anna", "graphics": "vulkan", "last_played": $((NOW - 7200)) },
+  { "id": "creative", "name": "Creative test", "extra_args": "--gamemode creative", "last_played": $((NOW - 3 * 86400)) },
+  { "id": "friends", "name": "Friends server", "start": { "kind": "join", "address": "10.0.0.5:47800" },
+    "player_name": "Anna", "last_played": $((NOW - 600)) }
 ] }
 EOF
 
+# No window manager: the launcher draws its own frame, and nothing reaches the real desktop.
 Xvfb ":$DISPLAY_NUMBER" -screen 0 1280x800x24 -nolisten tcp >/dev/null 2>&1 &
 XVFB_PID=$!
 sleep 1

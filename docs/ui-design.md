@@ -15,7 +15,7 @@ profile tiles); icons come from the Phosphor icon font (MIT), text from Inter (O
 | M  |                         page content                                     |
 | P  |                                                                          |
 | V  |                                                                          |
-|    |                                                                          |
+| O  |                                                                          |
 | N• |                                                                          |  N = notifications, • = unread badge
 | S  |                                                                          |
 | i  |                                                                          |
@@ -23,8 +23,8 @@ profile tiles); icons come from the Phosphor icon font (MIT), text from Inter (O
 +----+--------------------------------------------------------------------------+
 ```
 
-Sidebar items (top): Home, Mods, Profiles, Versions. Bottom: Notifications, Settings, About, Play. Each item is an
-icon with a tooltip and an AccessKit label; the active one has an accent pill and the filled icon. Ctrl+1 … Ctrl+7 open
+Sidebar items (top): Home, Mods, Profiles, Game versions, Game output. Bottom: Notifications, Settings, About, Play. Each item is an
+icon with a tooltip and an AccessKit label; the active one has an accent pill and the filled icon. Ctrl+1 … Ctrl+8 open
 the pages in sidebar order, F5 plays, Ctrl+F searches mods, Esc closes a dialog or goes back.
 
 With "Use the system window frame" off (the default) the launcher draws its own title bar with minimise, maximise and
@@ -38,7 +38,7 @@ close, and resize handles on the edges; on, the system frame is used and the tit
 |  hero: sky gradient, hills, a chestnut, the profile    |  | NEWS          (org) |
 |        Survival                                        |  | title · date        |
 |        castanea 0.2.0 · world "lake"                   |  | body…               |
-|              [ (S) Survival          v ]          [✎]  |  +---------------------+
+|   [ (S) Survival     v ]          [✎]  [ ▶ Play ]     |  +---------------------+
 +-------------------------------------------------------+  | MODS          (vio) |
  (clock) Last played profiles                    3 profiles|  | 2 updates / featured|
 +-------------------------------------------------------+  | [Update all]        |
@@ -53,9 +53,10 @@ close, and resize handles on the edges; on, the system frame is used and the tit
 ```
 
 The right column is 320 wide when the content is at least 960 wide; below that it collapses into a two column grid
-under the profile list (in the same scroll area). The hero is 34 % of the height (150 to 260). A card for a running game
+under the profile list (in the same scroll area). The hero is 36 % of the column height (150 to 260). A card for a running game
 gets a green outline, Output (the log page) and a red Stop. Profiles never run twice at once (they share a folder), but
-different profiles run side by side, each with its own log.
+different profiles run side by side, each with its own log. So a running card offers Output where a "launch another"
+button would start a second copy in the same folder.
 
 ## Mods: installed
 
@@ -142,7 +143,7 @@ Two columns when the content is at least 960 wide, else one.
  [mark] castanea launcher  0.1.0
  text, link, licence line (Inter OFL, Phosphor MIT)
  +-- Keyboard ----------+  +-- Safety -------------------+
- | Ctrl+1…7  pages      |  | HTTPS only, SHA-256, …      |
+ | Ctrl+1…8  pages      |  | HTTPS only, SHA-256, …      |
  +----------------------+  +-----------------------------+
 ```
 
