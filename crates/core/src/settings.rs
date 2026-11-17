@@ -29,6 +29,8 @@ pub struct Settings {
     pub last_profile: Option<String>,
     /// Lines of game output the Play tab keeps.
     pub log_lines: usize,
+    /// The system's window frame instead of the launcher's own title bar.
+    pub system_frame: bool,
 }
 
 impl Default for Settings {
@@ -40,6 +42,7 @@ impl Default for Settings {
             indexes: Vec::new(),
             last_profile: None,
             log_lines: 5000,
+            system_frame: false,
         }
     }
 }

@@ -67,6 +67,8 @@ pub struct Profile {
     pub env: Vec<(String, String)>,
     /// A game folder of the user's choice; `None` is `data/instances/<id>`.
     pub folder: Option<PathBuf>,
+    /// When the game was last started with this profile, in seconds since 1970.
+    pub last_played: Option<u64>,
 }
 
 impl Default for Profile {
@@ -83,6 +85,7 @@ impl Default for Profile {
             extra_args: String::new(),
             env: Vec::new(),
             folder: None,
+            last_played: None,
         }
     }
 }
@@ -123,6 +126,13 @@ impl Profiles {
 
     pub fn get_mut(&mut self, id: &str) -> Option<&mut Profile> {
         self.profiles.iter_mut().find(|p| p.id == id)
+    }
+
+    /// The profiles, the last played first; never played ones keep their order at the end.
+    pub fn by_last_played(&self) -> Vec<&Profile> {
+        let mut list: Vec<&Profile> = self.profiles.iter().collect();
+        list.sort_by_key(|p| std::cmp::Reverse(p.last_played.unwrap_or(0)));
+        list
     }
 
     /// A new profile named `name` with a free id; returns the id.
@@ -178,5 +188,18 @@ mod tests {
         profiles.add("Two");
         assert!(profiles.remove("default").is_ok());
         assert!(profiles.remove("nope").is_err());
+    }
+
+    #[test]
+    fn last_played_sorts_newest_first_and_old_files_still_load() {
+        let mut profiles = Profiles { profiles: vec![Profile::default()] };
+        profiles.add("a");
+        profiles.add("b");
+        profiles.get_mut("b").unwrap().last_played = Some(20);
+        profiles.get_mut("default").unwrap().last_played = Some(10);
+        let ids: Vec<&str> = profiles.by_last_played().iter().map(|p| p.id.as_str()).collect();
+        assert_eq!(ids, ["b", "default", "a"]);
+        let old: Profile = serde_json::from_str(r#"{"id":"x","name":"X"}"#).unwrap();
+        assert_eq!(old.last_played, None);
     }
 }
