@@ -36,6 +36,11 @@ little state, much of it read from disk and from background jobs. The look is th
 (`ui/theme.rs`, [ui-design.md](ui-design.md)). The window uses the system frame on both platforms: snapping, shadows,
 resizing and accessibility of the frame then work as the platform does them.
 
+**Fonts.** egui draws TrueType text only, so the project's own bitmap font (BMFont atlas, coloured, capitals and digits
+only) is loaded by a small parser in `ui/bmfont.rs`, scaled on the CPU into texture levels and drawn as textured quads
+(`ui/bmfont/`). It sets the wordmark, the page titles and the Play label; Inter stays the text face and the fallback for
+anything the atlas cannot spell. Details and the reasons are in [ui-design.md](ui-design.md#the-brand-font).
+
 ## Architecture
 
 ```

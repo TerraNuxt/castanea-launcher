@@ -150,7 +150,7 @@
 
   "about.version": "Version",
   "about.text": "Hält castanea auf der neuesten Version, startet es und verwaltet und findet Mods.",
-  "about.license": "MIT-Lizenz. Gebaut mit egui. Schrift Inter (SIL Open Font License 1.1), Symbole von Phosphor (MIT).",
+  "about.license": "MIT-Lizenz. Gebaut mit egui. Schrift Inter (SIL Open Font License 1.1), Symbole von Phosphor (MIT), Titel in der eigenen Kupferschrift des Projekts.",
   "about.keys": "Tastatur",
   "about.key_pages": "Die Seiten in der Reihenfolge der Seitenleiste öffnen",
   "about.key_play": "Spielen",

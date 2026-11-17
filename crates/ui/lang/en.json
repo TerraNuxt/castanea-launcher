@@ -150,7 +150,7 @@
 
   "about.version": "Version",
   "about.text": "Keeps castanea at its newest release, starts it, and manages and finds mods.",
-  "about.license": "MIT licence. Built with egui. Text in Inter (SIL Open Font License 1.1), icons from Phosphor (MIT).",
+  "about.license": "MIT licence. Built with egui. Text in Inter (SIL Open Font License 1.1), icons from Phosphor (MIT), titles in the project's own copper font.",
   "about.keys": "Keyboard",
   "about.key_pages": "Open the pages in sidebar order",
   "about.key_play": "Play",

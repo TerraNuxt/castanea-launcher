@@ -2,6 +2,7 @@
 //! every control has a name for screen readers, an idle window asks for no repaint, the update states read right,
 //! and every string key exists and is used.
 
+mod brand;
 mod layout;
 
 use std::fs;

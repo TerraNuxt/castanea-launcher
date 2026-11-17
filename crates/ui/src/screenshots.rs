@@ -12,6 +12,15 @@ use crate::jobs::{self, Progress};
 
 const SIZE: [f32; 2] = [1280.0, 720.0];
 
+/// The window size: 1280x720, or `CASTANEA_SHOT_SIZE=WxH` for a second set at another size.
+fn shot_size() -> [f32; 2] {
+    let parsed = std::env::var("CASTANEA_SHOT_SIZE").ok().and_then(|v| {
+        let (w, h) = v.split_once('x')?;
+        Some([w.parse().ok()?, h.parse().ok()?])
+    });
+    parsed.unwrap_or(SIZE)
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Wait {
     /// No job and no game.
@@ -44,7 +53,7 @@ fn up_to_date(app: &mut App) {
     jobs::set(&app.update_progress, None);
 }
 
-const STEPS: [Step; 14] = [
+const STEPS: [Step; 18] = [
     Step {
         name: "home",
         wait: Wait::Idle,
@@ -121,9 +130,22 @@ const STEPS: [Step; 14] = [
         },
     },
     Step { name: "about", wait: Wait::Idle, setup: |app| app.go(Page::About) },
+    Step {
+        name: "mods-installed-de",
+        wait: Wait::Idle,
+        setup: |app| {
+            language(app, "de");
+            app.mods_view = ModsView::Installed;
+            app.go(Page::Mods);
+        },
+    },
+    Step { name: "settings-de", wait: Wait::Idle, setup: |app| app.go(Page::Settings) },
+    Step { name: "output-de", wait: Wait::Idle, setup: |app| app.go(Page::Log) },
+    Step { name: "about-de", wait: Wait::Idle, setup: |app| app.go(Page::About) },
 ];
 
 pub struct Shots {
+    size: [f32; 2],
     dir: PathBuf,
     step: usize,
     frames: u32,
@@ -134,7 +156,15 @@ pub struct Shots {
 
 impl Shots {
     pub fn new(dir: PathBuf) -> Self {
-        Self { dir, step: 0, frames: 0, requested: false, image: Arc::default(), failed: Arc::default() }
+        Self {
+            size: shot_size(),
+            dir,
+            step: 0,
+            frames: 0,
+            requested: false,
+            image: Arc::default(),
+            failed: Arc::default(),
+        }
     }
 
     fn fail(&self, text: String) {
@@ -150,11 +180,11 @@ impl Shots {
         };
         if self.frames == 0 {
             (step.setup)(app);
-            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(SIZE[0], SIZE[1])));
+            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(self.size[0], self.size[1])));
         }
         self.frames += 1;
         let size = ctx.content_rect().size();
-        let sized = (size.x - SIZE[0]).abs() < 1.0 && (size.y - SIZE[1]).abs() < 1.0;
+        let sized = (size.x - self.size[0]).abs() < 1.0 && (size.y - self.size[1]).abs() < 1.0;
         let ready = match step.wait {
             Wait::Idle => app.jobs.running == 0 && !app.is_running(),
             Wait::Running => app.is_running(),

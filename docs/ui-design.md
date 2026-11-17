@@ -4,6 +4,7 @@ Clean and matte, like a well-made native settings app: flat solid surfaces, 1 px
 apart, one muted accent used sparingly, one type family, few icons. No gradients, glow, shadows, tinted cards, icon
 bubbles or illustrations. Every colour, size and duration is a token in `crates/ui/src/theme.rs`; pages build on the
 components in `crates/ui/src/widgets/`. Text is Inter (OFL), icons are Phosphor line icons (MIT), see `third_party/`.
+The project's own copper font ([The brand font](#the-brand-font)) sets the wordmark, page titles and the Play label.
 Screenshots of every page: [screenshots/](screenshots/).
 
 ## Frame
@@ -30,10 +31,10 @@ this order, F5 plays, Ctrl+F searches mods, Esc closes a question or leaves the 
 ## Play (home)
 
 ```
-                                 castanea                         32 pt semibold
+                                 CASTANEA                         brand font, 52 pt line height
 
                           +------------------------+
-                          |          Play          |              240 x 48, the accent
+                          |          PLAY          |              240 x 48, dark plate, accent outline
                           +------------------------+
                           ======------------------                2 px progress, only while downloading
                  castanea 0.2.0  ·  up to date                    12 pt muted, one line
@@ -150,11 +151,53 @@ Opening Advanced scrolls it into view.
 Name, version, one sentence, the repository link, the licence and font credits; Keyboard (rows of keys and what they
 do); Safety (one paragraph). Same column as Settings.
 
+## The brand font
+
+`crates/ui/assets/fonts/castanea/` holds the project's own font, made for the launcher: `castanea.png` (a 2048 x 1024
+RGBA atlas) and `castanea.fnt` (BMFont text format, line height 235, base 180). No foreign licence; see its
+`SOURCE.md`. What it is:
+
+- Riveted copper plate capitals with a baked bevel, highlight and drop shadow: a coloured display face, not a
+  distance field and not plain coverage. It has A-Z (the lower-case ids 97-122 draw the same capitals), 0-9 and the
+  space: 63 characters. No punctuation, no umlauts, no ß, no accents, no kerning pairs, no padding or spacing.
+- Capitals are 171 of the 235 px line; the shadow runs 15 px below the baseline. Letters are wide and heavy, and
+  rivets and plate seams are texture, not shape, so at small sizes only the letter shapes survive. Sizes below a 20 pt
+  line height (15 px capitals) were not tried and are not advised; 24 to 30 read clearly in the screenshots.
+
+So it is a brand face, not a text face, and the launcher uses it only where a few capital words are shown big:
+
+| Where | Size token | Notes |
+|---|---|---|
+| wordmark on Play | `size::BRAND` 52 | `castanea` |
+| page titles | `size::HEADING` 30 | Mods, Game output, Settings, About's `castanea launcher` and their German names |
+| Play / Stop label | `size::BRAND_BUTTON` 28 | copper on a dark plate with an ACCENT outline; copper on the chestnut fill has no contrast |
+
+Everything else stays Inter: body text, section titles, nav labels, the log (monospace), numbers such as the running
+time. Text the font cannot spell (a title with ü, ß, a comma, a colon or a question mark) is set whole in Inter
+semibold in the TEXT colour instead, never glyph by glyph, so no word is ever half copper. All current titles are
+spelled by it in both languages (`tests/brand.rs` checks that), so a new title with punctuation shows up as an Inter
+heading until the missing glyphs are added to the atlas.
+
+How it is drawn (`bmfont.rs`, `bmfont/atlas.rs`, `bmfont/paint.rs`):
+
+- `BitmapFont::parse` reads the BMFont text format (info, common, page, chars, kernings; one page) and lays out
+  strings: advances, kerning, line wrapping at spaces, a baseline that puts the capitals' top at the box top
+  (`cap_box`).
+- egui has no bitmap fonts and a 235 px atlas drawn at 20 px would shimmer. Each glyph is box-filtered (exact area
+  average on premultiplied pixels, so no colour fringes) into levels at 1/sqrt(2) steps, packed with a transparent
+  border so no neighbour bleeds in. The painter picks the level just sharper than the screen size
+  (`size * pixels_per_point / 235`), uploads it once as a texture with linear filtering and caches it in the context.
+  The GPU only ever shrinks by less than 1.42x.
+- Glyph corners snap to whole physical pixels at any `pixels_per_point`.
+- The atlas is multiplied by the tint: white keeps the copper as drawn, other colours darken or colour it.
+- `BmText::show` registers a heading with the real text for screen readers; the fallback keeps it too. An idle window
+  still asks for no repaint (nothing animates).
+
 ## Components
 
 | Component | Notes |
 |---|---|
-| primary button | ACCENT fill, white semibold text, radius 5, 32 high (Play: 240 x 48, 18 pt); hover and press darken in 120 ms. Once per view at most |
+| primary button | ACCENT fill, white semibold text, radius 5, 32 high (Play: 240 x 48; its brand-font label sits on a dark plate with an ACCENT outline); hover and press darken in 120 ms. Once per view at most |
 | secondary button | no fill, 1 px BORDER_STRONG outline, TEXT; HOVER and PRESSED fills |
 | danger button | DANGER_FILL, white text; only in the remove question |
 | quiet link | muted text, TEXT under the pointer; Game output, Try again, Show report |
@@ -195,8 +238,8 @@ All text colours meet WCAG AA (4.5:1) on BASE, BG, RAISED and HOVER, white meets
 accent has 3:1 against the surfaces for focus rings; `theme::tests` checks this.
 
 Spacing `space::{XS 4, S 8, M 12, L 16, XL 24, XXL 32}`; radius `radius::{M 5, S 4}` (and full for the switch); text
-`size::{SMALL 12, BODY 14, TITLE 18, DISPLAY 32}` in Inter regular and semibold (the log and the command line use
-the monospace font at 12); icons 16; lines `line::{HAIRLINE 1, FOCUS 1.5, PROGRESS 2}`; durations
+`size::{SMALL 12, BODY 14, TITLE 18}` in Inter regular and semibold (the log and the command line use the monospace
+font at 12) and `size::{BRAND 52, HEADING 30, BRAND_BUTTON 28}` as line heights of the brand font; icons 16; lines `line::{HAIRLINE 1, FOCUS 1.5, PROGRESS 2}`; durations
 `anim::{HOVER 0.12, TOAST 6 s, TOAST_ERROR 10 s}`; layout `layout::{SIDEBAR 184, CONTROL 32, PLAY 240x48, READABLE
 720, LABEL 220, FIELD 320, LIST 320, NARROW 720, MIN 1000x640}`.
 

@@ -7,17 +7,17 @@ use crate::app::{App, Page};
 use crate::game::{Update, clock};
 use crate::jobs;
 use crate::theme::{color, layout, line, radius, size, space};
-use crate::widgets::{self, Button, Kind};
+use crate::widgets::{Button, Kind};
 use crate::{probe, theme};
 
 /// The block's height for centring: name, gaps, button, progress, status and link lines.
-const BLOCK: f32 = size::DISPLAY * 1.25 + space::XXL + layout::PLAY[1] + space::L * 2.0 + size::BODY * 3.0;
+const BLOCK: f32 = size::BRAND * 0.75 + space::XXL + layout::PLAY[1] + space::L * 2.0 + size::BODY * 3.0;
 
 pub fn ui(app: &mut App, ui: &mut egui::Ui) {
     let top = ((ui.available_height() - BLOCK) * layout::HOME_RISE).max(0.0);
     ui.add_space(top);
     ui.vertical_centered(|ui| {
-        let name = ui.label(widgets::strong("castanea", size::DISPLAY));
+        let name = crate::bmfont::bm_label(ui, "castanea", size::BRAND);
         probe::mark(ui.ctx(), "home:wordmark", name.rect);
         ui.add_space(space::XXL);
         play_button(app, ui);
@@ -39,7 +39,8 @@ fn play_button(app: &mut App, ui: &mut egui::Ui) {
         Some(seconds) => {
             let stop = app.tr.get("play.stop").to_owned();
             let name = app.tr.fill("play.stop_running", &[("time", &clock(seconds))]);
-            let response = Button::new(Kind::Secondary, &stop).large().trailing(clock(seconds)).name(name).show(ui);
+            let response =
+                Button::new(Kind::Secondary, &stop).large().brand().trailing(clock(seconds)).name(name).show(ui);
             if response.clicked() {
                 app.stop();
             }
@@ -47,7 +48,7 @@ fn play_button(app: &mut App, ui: &mut egui::Ui) {
         }
         None => {
             let play = app.tr.get("play.play").to_owned();
-            let response = Button::new(Kind::Primary, &play).large().enabled(app.can_play()).show(ui);
+            let response = Button::new(Kind::Primary, &play).large().brand().enabled(app.can_play()).show(ui);
             if response.clicked() {
                 app.play();
             }

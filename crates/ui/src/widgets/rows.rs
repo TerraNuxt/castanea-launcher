@@ -13,7 +13,7 @@ pub fn page_header<R>(ui: &mut egui::Ui, title: &str, actions: impl FnOnce(&mut 
             egui::vec2(ui.available_width(), layout::CONTROL),
             egui::Layout::left_to_right(egui::Align::Center),
             |ui| {
-                ui.label(super::strong(title, size::TITLE));
+                crate::bmfont::bm_label(ui, title, size::HEADING);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), actions).inner
             },
         )

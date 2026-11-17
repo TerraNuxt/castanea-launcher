@@ -8,10 +8,11 @@ use crate::theme::{color, layout, size, space};
 use crate::widgets::{self, setting_row};
 
 pub fn ui(app: &mut App, ui: &mut egui::Ui) {
-    egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+    egui::ScrollArea::vertical().id_salt("about").auto_shrink([false, false]).show(ui, |ui| {
         ui.set_max_width(layout::READABLE);
         let top = ui.cursor().top();
-        ui.label(widgets::strong("castanea launcher", size::TITLE));
+        crate::bmfont::bm_label(ui, "castanea launcher", size::HEADING);
+        ui.add_space(space::XS);
         ui.label(widgets::small(format!("{} {}", app.tr.get("about.version"), env!("CARGO_PKG_VERSION"))));
         ui.add_space(space::M);
         widgets::wrapped(ui, widgets::text(app.tr.get("about.text")));

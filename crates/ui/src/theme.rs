@@ -53,12 +53,18 @@ pub mod radius {
     pub const FULL: u8 = 255;
 }
 
-/// Text sizes in points: four, all Inter.
+/// Text sizes in points: Inter for text, and three sizes for the brand font (its size is the line height).
 pub mod size {
     pub const SMALL: f32 = 12.0;
     pub const BODY: f32 = 14.0;
     pub const TITLE: f32 = 18.0;
-    pub const DISPLAY: f32 = 32.0;
+    /// The brand font (docs/ui-design.md) takes its size as the line height; its capitals are 73 % of it.
+    /// The wordmark on the home page.
+    pub const BRAND: f32 = 52.0;
+    /// Page titles.
+    pub const HEADING: f32 = 30.0;
+    /// The label of the Play and Stop button.
+    pub const BRAND_BUTTON: f32 = 28.0;
     /// Icon glyphs, not text.
     pub const ICON: f32 = 16.0;
 }

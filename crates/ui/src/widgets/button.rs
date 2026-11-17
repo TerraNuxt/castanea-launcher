@@ -3,6 +3,7 @@
 
 use eframe::egui::{self, Color32, Response, Role, Sense, StrokeKind, WidgetInfo};
 
+use crate::bmfont::BmText;
 use crate::theme::{self, anim, color, font, layout, line, radius, size, space};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -43,6 +44,7 @@ pub struct Button<'a> {
     text_size: f32,
     trailing: Option<String>,
     name: Option<String>,
+    brand: bool,
 }
 
 impl<'a> Button<'a> {
@@ -56,7 +58,14 @@ impl<'a> Button<'a> {
             text_size: size::BODY,
             trailing: None,
             name: None,
+            brand: false,
         }
+    }
+
+    /// Sets the label in the brand font (docs/ui-design.md) when it can spell it, else in Inter.
+    pub fn brand(mut self) -> Self {
+        self.brand = true;
+        self
     }
 
     pub fn enabled(mut self, enabled: bool) -> Self {
@@ -100,7 +109,10 @@ impl<'a> Button<'a> {
                 ui.painter().layout_no_wrap(digits, font::regular(self.text_size), Color32::PLACEHOLDER).size().x;
             (ui.painter().layout_no_wrap(t.clone(), font::regular(self.text_size), Color32::PLACEHOLDER), slot)
         });
-        let content = galley.size().x + trailing.as_ref().map_or(0.0, |(_, slot)| space::M + slot);
+        let brand = (self.brand && !quiet).then(|| BmText::new(self.text, size::BRAND_BUTTON).fallback(color::TEXT));
+        let brand = brand.filter(BmText::is_bitmap);
+        let label_width = brand.as_ref().map_or(galley.size().x, |b| b.measure(ui.ctx()).x);
+        let content = label_width + trailing.as_ref().map_or(0.0, |(_, slot)| space::M + slot);
         let pad = if quiet { 0.0 } else { space::L };
         let height = if quiet { galley.size().y + space::XS } else { self.size[1] };
         let width = self.width.unwrap_or(content + pad * 2.0);
@@ -109,7 +121,12 @@ impl<'a> Button<'a> {
         let (hover, press) = hover_press(ui, &response);
         if ui.is_rect_visible(rect) {
             let painter = ui.painter();
-            let (fill, stroke, fg) = self.colors(hover, press);
+            let (mut fill, mut stroke, fg) = self.colors(hover, press);
+            if brand.is_some() && self.enabled && self.kind == Kind::Primary {
+                // Copper letters need a dark plate; the accent is kept as the outline.
+                fill = theme::mix(theme::mix(color::BASE, color::RAISED, hover), color::HOVER, press);
+                stroke = Some(color::ACCENT);
+            }
             if fill != Color32::TRANSPARENT {
                 painter.rect_filled(rect, theme::radius(radius::M), fill);
             }
@@ -122,9 +139,15 @@ impl<'a> Button<'a> {
                 );
             }
             let mut x = rect.center().x - content / 2.0;
-            painter.galley(egui::pos2(x, rect.center().y - galley.size().y / 2.0), galley.clone(), fg);
+            if let Some(brand) = &brand {
+                let tint = if self.enabled { Color32::WHITE } else { theme::mix(Color32::WHITE, color::RAISED, 0.7) };
+                let height = brand.measure(ui.ctx()).y;
+                brand.clone().tint(tint).paint(painter, egui::pos2(x, rect.center().y - height / 2.0));
+            } else {
+                painter.galley(egui::pos2(x, rect.center().y - galley.size().y / 2.0), galley.clone(), fg);
+            }
             if let Some((time, slot)) = trailing {
-                x += galley.size().x + space::M;
+                x += label_width + space::M;
                 let at = egui::pos2(x + slot - time.size().x, rect.center().y - time.size().y / 2.0);
                 painter.galley(at, time, theme::mix(fg, Color32::TRANSPARENT, 0.15));
             }

@@ -64,7 +64,7 @@ release, for one run. `CASTANEA_GITHUB_TOKEN` gives the token for a private game
 | `crates/core` | Everything without UI: folders, settings, the build and its updates, migration, launch, mods, index, downloads |
 | `crates/ui` | The window (eframe): `app.rs` state, `game.rs` updates and the running game, `shell.rs` layout, `sidebar.rs`, `pages/` one file per page, `widgets/` components, `theme.rs` tokens, `lang/` strings, `assets/fonts` |
 | `docs/` | Design, UI design, mod index format, packaging, Nix, Windows notes, screenshots, an example index |
-| `third_party/` | Licences and sources of the fonts (Inter, Phosphor) |
+| `third_party/` | Licences and sources of the foreign fonts (Inter, Phosphor); the own brand font has its note beside it |
 | `tools/remote.sh` | Runs a command on the build host (`tools/remote.sh cargo test --workspace`) |
 | `tools/winck.sh` | Windows cross-check (cargo check and clippy for a Windows target in a container) |
 | `tools/screenshots.sh` | Takes `docs/screenshots` under a private Xvfb display (`castanea-launcher --screenshots DIR`) |
@@ -72,4 +72,5 @@ release, for one run. `CASTANEA_GITHUB_TOKEN` gives the token for a private game
 ## License
 
 MIT, see [LICENSE](LICENSE). The fonts in `crates/ui/assets/fonts` are Inter (SIL OFL 1.1) and Phosphor icons (MIT),
-see `third_party/`.
+see `third_party/`, and the project's own copper brand font (`assets/fonts/castanea`, no foreign licence) for the
+wordmark, titles and the Play label.
