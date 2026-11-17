@@ -65,6 +65,11 @@ pub struct Settings {
     pub release_url: String,
     /// Also offer `beta` builds, not only `stable` ones.
     pub beta: bool,
+    /// Keep the launcher itself at its newest release (download, stage and apply it).
+    pub launcher_update: bool,
+    /// Developer use: install a game build whose signature is missing or wrong. Debug builds only; a release build
+    /// ignores it (see `unsigned_allowed`), and the launcher's own updates always need a signature.
+    pub allow_unsigned: bool,
     pub game: GameOptions,
     /// For people building the game from source: run this folder in place instead of the newest release.
     pub dev_build: Option<PathBuf>,
@@ -79,6 +84,8 @@ impl Default for Settings {
             log_lines: 5000,
             release_url: DEFAULT_RELEASE_URL.to_owned(),
             beta: false,
+            launcher_update: true,
+            allow_unsigned: false,
             game: GameOptions::default(),
             dev_build: None,
         }
@@ -86,6 +93,11 @@ impl Default for Settings {
 }
 
 impl Settings {
+    /// Whether unsigned game builds may be installed: the switch is on and this is a debug build.
+    pub fn unsigned_allowed(&self) -> bool {
+        self.allow_unsigned && cfg!(debug_assertions)
+    }
+
     pub fn load(paths: &Paths) -> Result<Self> {
         json_file::load_or_default(&paths.settings_file())
     }

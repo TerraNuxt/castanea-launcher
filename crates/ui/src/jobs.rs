@@ -8,6 +8,7 @@ use castanea_launcher_core::download::Speed;
 use castanea_launcher_core::index::Index;
 use castanea_launcher_core::install::Build;
 use castanea_launcher_core::install::update::Check;
+use castanea_launcher_core::selfupdate;
 use eframe::egui;
 
 pub enum Done {
@@ -21,6 +22,10 @@ pub enum Done {
     Downloaded(Result<Build, String>),
     /// The downloaded build became the installed one.
     Applied(Result<Build, String>),
+    /// The launcher update check.
+    LauncherChecked(Result<selfupdate::Check, String>),
+    /// A newer launcher is staged and in place (its version), or why not.
+    LauncherApplied(Result<String, String>),
     ModInstalled {
         id: String,
         result: Result<(), String>,

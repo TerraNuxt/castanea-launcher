@@ -7,6 +7,7 @@ mod game;
 mod i18n;
 mod icons;
 mod jobs;
+mod launcher;
 mod pages;
 mod probe;
 mod screenshots;
@@ -22,6 +23,7 @@ use std::path::PathBuf;
 
 use castanea_launcher_core::install::local::GAME_DIR_ENV;
 use castanea_launcher_core::paths::Paths;
+use castanea_launcher_core::selfupdate::{self, Layout, Os, Startup};
 use eframe::egui;
 
 const USAGE: &str = "usage: castanea-launcher [--game-dir DIR] [--screenshots DIR] [--version]
@@ -38,6 +40,7 @@ struct Launcher {
 impl eframe::App for Launcher {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         shell::ui(&mut self.app, ui);
+        self.app.frame_drawn();
         if let Some(shots) = &mut self.shots {
             shots.tick(&mut self.app, ui.ctx());
         }
@@ -74,6 +77,22 @@ fn main() -> std::process::ExitCode {
         return std::process::ExitCode::FAILURE;
     };
     let screenshot_mode = shots_dir.is_some();
+    // Screenshots never touch the installed launcher.
+    let layout = if screenshot_mode { None } else { Layout::detect() };
+    if let Some(layout) = &layout {
+        match selfupdate::startup(Os::current(), &paths, layout, launcher::VERSION) {
+            Startup::RolledBack { failed, restored } => {
+                eprintln!("castanea-launcher: {failed} did not start, back to {restored}");
+                if selfupdate::relaunch(layout, std::env::args_os().skip(1)).is_ok() {
+                    return std::process::ExitCode::SUCCESS;
+                }
+            }
+            Startup::NoBackup { failed } => {
+                eprintln!("castanea-launcher: {failed} did not start and there is no backup")
+            }
+            Startup::Normal => {}
+        }
+    }
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("castanea")
@@ -93,6 +112,7 @@ fn main() -> std::process::ExitCode {
             theme::apply(&cc.egui_ctx);
             egui_extras::install_image_loaders(&cc.egui_ctx);
             let mut app = app::App::new(paths, game_dir);
+            app.launcher_layout = layout;
             app.auto_check = shots.is_none();
             Ok(Box::new(Launcher { app, shots }))
         }),

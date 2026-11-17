@@ -9,10 +9,30 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
+use ed25519_dalek::{Signer, SigningKey};
+
 use crate::download::sha256_hex;
+use crate::signature::tests::{sign, test_key_id};
+use crate::signature::{Fields, message};
 use crate::version;
 
+/// What the server says about a release's signature.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Sig {
+    Valid,
+    Missing,
+    Garbage,
+    /// Signed by a key that is not in the trust list, with its real key id.
+    WrongKey,
+    /// A good signature naming a key id nobody trusts.
+    UnknownId,
+}
+
 pub struct Entry {
+    pub product: String,
+    pub sig: Sig,
     pub version: String,
     pub channel: String,
     pub platform: String,
@@ -85,7 +105,23 @@ impl ReleaseServer {
     }
 
     pub fn publish(&self, version: &str, channel: &str, platform: &str, notes: &str, zip: Vec<u8>) {
+        self.publish_as("game", Sig::Valid, version, channel, platform, notes, zip);
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn publish_as(
+        &self,
+        product: &str,
+        sig: Sig,
+        version: &str,
+        channel: &str,
+        platform: &str,
+        notes: &str,
+        zip: Vec<u8>,
+    ) {
         let entry = Entry {
+            product: product.into(),
+            sig,
             version: version.into(),
             channel: channel.into(),
             platform: platform.into(),
@@ -102,7 +138,7 @@ impl ReleaseServer {
 
     /// The download requests so far.
     pub fn downloads(&self) -> Vec<Seen> {
-        self.seen().into_iter().filter(|s| s.path.ends_with("/download")).collect()
+        self.seen().into_iter().filter(|s| s.path.split('?').next().is_some_and(|p| p.ends_with("/download"))).collect()
     }
 }
 
@@ -156,11 +192,34 @@ fn query(path: &str, key: &str) -> Option<String> {
 }
 
 fn describe(base: &str, e: &Entry) -> serde_json::Value {
-    serde_json::json!({
-        "version": e.version, "channel": e.channel, "platform": e.platform, "released_at": "2026-11-01T00:00:00Z",
-        "size": e.zip.len(), "sha256": e.sha(), "notes": e.notes,
-        "url": format!("{base}/v1/releases/{}/{}/download", e.version, e.platform),
-    })
+    let suffix = if e.product == "game" { String::new() } else { format!("?product={}", e.product) };
+    let mut value = serde_json::json!({
+        "product": e.product, "version": e.version, "channel": e.channel, "platform": e.platform,
+        "released_at": "2026-11-01T00:00:00Z", "size": e.zip.len(), "sha256": e.sha(), "notes": e.notes,
+        "url": format!("{base}/v1/releases/{}/{}/download{suffix}", e.version, e.platform),
+    });
+    let fields = Fields {
+        product: &e.product,
+        version: &e.version,
+        platform: &e.platform,
+        channel: &e.channel,
+        sha256: &sha256_hex(&e.zip),
+        size: e.zip.len() as u64,
+    };
+    let (signature, key_id) = match e.sig {
+        Sig::Valid => (Some(sign(&fields)), Some(test_key_id())),
+        Sig::Missing => (None, None),
+        Sig::Garbage => (Some("AAAA".to_owned()), Some(test_key_id())),
+        Sig::WrongKey => {
+            let other = SigningKey::from_bytes(&[9u8; 32]);
+            let signature = STANDARD.encode(other.sign(message(&fields).as_bytes()).to_bytes());
+            (Some(signature), Some(crate::trust::key_id(&other.verifying_key().to_bytes())))
+        }
+        Sig::UnknownId => (Some(sign(&fields)), Some("0123456789abcdef".to_owned())),
+    };
+    value["signature"] = signature.into();
+    value["key_id"] = key_id.into();
+    value
 }
 
 fn handle(mut stream: TcpStream, state: &Mutex<State>, base: &str) -> Option<()> {
@@ -180,11 +239,14 @@ fn handle(mut stream: TcpStream, state: &Mutex<State>, base: &str) -> Option<()>
     }
     let cut = if is_download && !limited { state.truncate.pop_front() } else { None };
     let (platform, channel) = (query(&path, "platform"), query(&path, "channel"));
+    let product = query(&path, "product").unwrap_or_else(|| "game".to_owned());
     let mut matching: Vec<&Entry> = state
         .entries
         .iter()
         .filter(|e| {
-            platform.as_ref().is_none_or(|p| *p == e.platform) && channel.as_ref().is_none_or(|c| *c == e.channel)
+            e.product == product
+                && platform.as_ref().is_none_or(|p| *p == e.platform)
+                && channel.as_ref().is_none_or(|c| *c == e.channel)
         })
         .collect();
     matching.sort_by_key(|e| std::cmp::Reverse(version::parse(&e.version)));
@@ -208,7 +270,9 @@ fn handle(mut stream: TcpStream, state: &Mutex<State>, base: &str) -> Option<()>
         json(&mut stream, "404 Not Found", &serde_json::json!({"error": "not found"}));
         return Some(());
     };
-    let Some(entry) = state.entries.iter().find(|e| e.version == version && e.platform == platform) else {
+    let Some(entry) =
+        state.entries.iter().find(|e| e.version == version && e.platform == platform && e.product == product)
+    else {
         json(&mut stream, "404 Not Found", &serde_json::json!({"error": "not found"}));
         return Some(());
     };

@@ -152,15 +152,17 @@ fn links(app: &mut App, ui: &mut egui::Ui) {
     let output = app.session.is_some();
     let retry = matches!(app.update, Update::Failed(_));
     let notes = app.whats_new().is_some();
-    if !output && !retry && !notes {
+    let restart = matches!(app.launcher, crate::launcher::LauncherUpdate::Restart { .. });
+    if !output && !retry && !notes && !restart {
         return;
     }
     ui.add_space(space::S);
-    let labels: Vec<String> = [(notes, "home.whats_new"), (output, "home.output"), (retry, "home.retry")]
-        .iter()
-        .filter(|(on, _)| *on)
-        .map(|(_, key)| app.tr.get(key).to_owned())
-        .collect();
+    let labels: Vec<String> =
+        [(restart, "launcher.restart"), (notes, "home.whats_new"), (output, "home.output"), (retry, "home.retry")]
+            .iter()
+            .filter(|(on, _)| *on)
+            .map(|(_, key)| app.tr.get(key).to_owned())
+            .collect();
     let width: f32 = labels
         .iter()
         .map(|l| ui.painter().layout_no_wrap(l.clone(), theme::font::regular(size::SMALL), color::TEXT).size().x)
@@ -171,6 +173,9 @@ fn links(app: &mut App, ui: &mut egui::Ui) {
         egui::Layout::left_to_right(egui::Align::Center),
         |ui| {
             ui.spacing_mut().item_spacing.x = space::XL;
+            if restart && Button::new(Kind::Quiet, app.tr.get("launcher.restart")).small().show(ui).clicked() {
+                app.restart_launcher(ui.ctx());
+            }
             if notes && Button::new(Kind::Quiet, app.tr.get("home.whats_new")).small().show(ui).clicked() {
                 app.show_notes = true;
             }

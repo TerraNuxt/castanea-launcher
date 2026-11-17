@@ -25,8 +25,13 @@ pub enum Error {
     },
     /// Refused by the security rules (plain HTTP, an unsafe path, a size over the limit, no checksum).
     Refused(String),
+    /// A download whose release signature is missing, malformed, from an unknown key or invalid.
+    Signature(String),
     Invalid(String),
 }
+
+/// The start of the message for a download without a valid signature; the UI recognises it.
+pub const NOT_SIGNED: &str = "this download is not signed by castanea";
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -62,6 +67,7 @@ impl fmt::Display for Error {
                 write!(f, "{what}: SHA-256 is {actual}, expected {expected}")
             }
             Self::Refused(message) => write!(f, "refused: {message}"),
+            Self::Signature(reason) => write!(f, "{NOT_SIGNED}: {reason}"),
             Self::Invalid(message) => f.write_str(message),
         }
     }

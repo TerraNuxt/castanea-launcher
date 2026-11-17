@@ -15,6 +15,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui) {
         app.check_updates(&ctx);
     }
     app.collect_jobs(&ctx);
+    app.auto_check_launcher(&ctx);
     app.poll_session(&ctx);
     if app.is_running() || app.jobs.running > 0 {
         ctx.request_repaint_after(std::time::Duration::from_secs_f64(anim::BUSY_REPAINT));

@@ -1,16 +1,18 @@
 //! The release API client (docs/release-api.md): the newest build for this platform, and its resumable download.
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 
 use super::build::Build;
 use super::notes;
-use super::release::{Channel, Platform, Release};
+use super::release::{Channel, Platform, Product, Release};
 use super::source::GameSource;
 use crate::archive::{self, Limits};
 use crate::download::{Client, Progress, Request, UrlPolicy};
 use crate::settings::{DEFAULT_RELEASE_URL, Settings};
+use crate::signature::{self, Fields};
+use crate::trust::TrustStore;
 use crate::{Error, Result, version};
 
 /// Overrides the server address (tests, staging); wins over the setting.
@@ -23,13 +25,20 @@ pub struct ReleaseApi {
     pub platform: Platform,
     /// Whether `beta` builds are offered next to `stable` ones.
     pub beta: bool,
+    pub product: Product,
+    /// The keys a release signature must verify against.
+    pub trust: TrustStore,
+    /// Installs a game build without a valid signature; only ever honoured by debug builds (`Settings::allow_unsigned`).
+    pub allow_unsigned: bool,
 }
 
 impl ReleaseApi {
     /// The server from `CASTANEA_RELEASE_URL`, else the setting, for the platform this launcher runs on.
     pub fn from_settings(settings: &Settings) -> Result<Self> {
         let env = std::env::var(URL_ENV).ok();
-        Self::new(&base_url(settings, env.as_deref()), Platform::detect()?, settings.beta)
+        let mut api = Self::new(&base_url(settings, env.as_deref()), Platform::detect()?, settings.beta)?;
+        api.allow_unsigned = settings.unsigned_allowed();
+        Ok(api)
     }
 
     /// `base` is `https://…`, or `http://` to the loopback (tests).
@@ -37,7 +46,64 @@ impl ReleaseApi {
         let base = if base.trim().is_empty() { DEFAULT_RELEASE_URL } else { base.trim() };
         let base = base.trim_end_matches('/').to_owned();
         UrlPolicy { allow_loopback_http: true }.check(&base)?;
-        Ok(Self { base, platform, beta })
+        Ok(Self { base, platform, beta, product: Product::Game, trust: TrustStore::current()?, allow_unsigned: false })
+    }
+
+    /// The same server for the launcher's own releases; an unsigned launcher is never accepted.
+    pub fn for_launcher(mut self) -> Self {
+        self.product = Product::Launcher;
+        self.allow_unsigned = false;
+        self
+    }
+
+    pub fn with_trust(mut self, trust: TrustStore) -> Self {
+        self.trust = trust;
+        self
+    }
+
+    /// Downloads the release's zip into `downloads_dir`, resuming a partial file, checks its SHA-256 and then its
+    /// signature against the downloaded file's own hash and size. Nothing is unpacked before both hold.
+    pub fn fetch_verified(
+        &self,
+        client: &Client,
+        release: &Release,
+        downloads_dir: &Path,
+        max_bytes: u64,
+        progress: Progress<'_>,
+        cancel: &AtomicBool,
+    ) -> Result<PathBuf> {
+        let zip = downloads_dir.join(format!("{}.zip", release.sha256));
+        let request = Request {
+            url: &release.url,
+            sha256: &release.sha256,
+            size: Some(release.size),
+            max_bytes,
+            headers: vec![("Accept", "application/zip".to_owned())],
+        };
+        client.download_resumable(&request, &zip, progress, cancel)?;
+        // `download_resumable` returned only after the file hashed to `release.sha256`; the size is the file's own.
+        let size = fs::metadata(&zip).map_err(|error| Error::io(&zip, error))?.len();
+        if let Err(error) = self.verify(release, &release.sha256, size) {
+            let _ = fs::remove_file(&zip);
+            return Err(error);
+        }
+        Ok(zip)
+    }
+
+    /// The signature check, with the API's fields and the file's real hash and size.
+    pub fn verify(&self, release: &Release, sha256: &str, size: u64) -> Result<()> {
+        let fields = Fields {
+            product: self.product.as_str(),
+            version: &release.version,
+            platform: self.platform.as_str(),
+            channel: &release.channel,
+            sha256,
+            size,
+        };
+        match signature::verify(&self.trust, &fields, release.signature.as_deref(), release.key_id.as_deref()) {
+            Err(Error::Signature(_)) if self.allow_unsigned && self.product == Product::Game => Ok(()),
+            result => result,
+        }
     }
 
     /// A client for this server: plain HTTP only when the server is on the loopback.
@@ -48,10 +114,11 @@ impl ReleaseApi {
     /// The newest release of one channel, or `None` when there is none yet.
     pub fn latest_in(&self, client: &Client, channel: Channel) -> Result<Option<Release>> {
         let url = format!(
-            "{}/v1/releases/latest?platform={}&channel={}",
+            "{}/v1/releases/latest?platform={}&channel={}{}",
             self.base,
             self.platform.as_str(),
-            channel.as_str()
+            channel.as_str(),
+            self.product_query()
         );
         let fetched = client.get_retry(&url, &[("Accept", "application/json".to_owned())], &AtomicBool::new(false))?;
         let status = fetched.status;
@@ -67,12 +134,26 @@ impl ReleaseApi {
 
     /// All releases of a channel, newest first.
     pub fn list(&self, client: &Client, channel: Channel) -> Result<Vec<Release>> {
-        let url = format!("{}/v1/releases?platform={}&channel={}", self.base, self.platform.as_str(), channel.as_str());
+        let url = format!(
+            "{}/v1/releases?platform={}&channel={}{}",
+            self.base,
+            self.platform.as_str(),
+            channel.as_str(),
+            self.product_query()
+        );
         let bytes = client.get_bytes(&url, &[("Accept", "application/json".to_owned())])?;
         let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(|error| Error::json(&url, error))?;
         let items =
             value.get("releases").and_then(|r| r.as_array()).ok_or_else(|| Error::json(&url, "no `releases` list"))?;
         items.iter().map(|item| self.release_value(item.clone())).collect()
+    }
+
+    /// The game is the server's default product and is left out, so the game's requests stay as they were.
+    fn product_query(&self) -> String {
+        match self.product {
+            Product::Game => String::new(),
+            product => format!("&product={}", product.as_str()),
+        }
     }
 
     fn release(&self, body: &[u8]) -> Result<Release> {
@@ -83,6 +164,14 @@ impl ReleaseApi {
     /// Parses one release and checks that it is for this platform and that its download is on this server.
     pub(super) fn release_value(&self, value: serde_json::Value) -> Result<Release> {
         let release = Release::parse(value)?;
+        if !release.product.is_empty() && release.product != self.product.as_str() {
+            return Err(Error::invalid(format!(
+                "release {}: it is a {} build, not a {} build",
+                release.version,
+                release.product,
+                self.product.as_str()
+            )));
+        }
         if !release.platform.is_empty() && release.platform != self.platform.as_str() {
             return Err(Error::invalid(format!(
                 "release {}: it is for {}, not {}",
@@ -141,15 +230,7 @@ impl GameSource for ReleaseApi {
         progress: Progress<'_>,
         cancel: &AtomicBool,
     ) -> Result<Build> {
-        let zip = downloads_dir.join(format!("{}.zip", release.sha256));
-        let request = Request {
-            url: &release.url,
-            sha256: &release.sha256,
-            size: Some(release.size),
-            max_bytes: MAX_ARCHIVE,
-            headers: vec![("Accept", "application/zip".to_owned())],
-        };
-        client.download_resumable(&request, &zip, progress, cancel)?;
+        let zip = self.fetch_verified(client, release, downloads_dir, MAX_ARCHIVE, progress, cancel)?;
         let unpacked = archive::extract(&zip, dest, Limits::GAME);
         let _ = fs::remove_file(&zip);
         unpacked?;

@@ -11,10 +11,13 @@ pub mod launch;
 pub mod migrate;
 pub mod mods;
 pub mod paths;
+pub mod selfupdate;
 pub mod settings;
+pub mod signature;
+pub mod trust;
 pub mod version;
 
-pub use error::{Error, Result};
+pub use error::{Error, NOT_SIGNED, Result};
 
 #[cfg(test)]
 mod release_server;

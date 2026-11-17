@@ -19,6 +19,8 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 ureq = { version = "3", default-features = false, features = ["rustls", "json"] }
 tempfile = "3"
 tiny_http = "0.12"
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
+base64 = "0.22"
 
 [profile.release]
 lto = "thin"

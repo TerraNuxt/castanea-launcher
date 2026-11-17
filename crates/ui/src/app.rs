@@ -20,6 +20,7 @@ use crate::game::{Session, Update};
 use crate::i18n::Strings;
 use crate::icons;
 use crate::jobs::{self, Done, Jobs, Slot};
+use crate::launcher::LauncherUpdate;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Page {
@@ -106,6 +107,15 @@ pub struct App {
     pub installed: Option<Build>,
     pub update: Update,
     pub update_progress: Slot,
+    /// The launcher's own update.
+    pub launcher: LauncherUpdate,
+    pub launcher_progress: Slot,
+    pub launcher_checked: bool,
+    /// Where the running launcher is installed; `None` for screenshots, which never update.
+    pub launcher_layout: Option<castanea_launcher_core::selfupdate::Layout>,
+    /// Version and plain-text notes of the newer launcher release.
+    pub launcher_notes: Option<(String, String)>,
+    pub frames_drawn: u32,
     /// A local build folder for this run only (`--game-dir`, `CASTANEA_GAME_DIR`).
     pub dev_override: Option<PathBuf>,
     /// Look for a newer build at the first frame; off for screenshots.
@@ -154,6 +164,12 @@ impl App {
             installed: None,
             update: Update::Idle,
             update_progress: Slot::default(),
+            launcher: LauncherUpdate::Idle,
+            launcher_progress: Slot::default(),
+            launcher_checked: false,
+            launcher_layout: None,
+            launcher_notes: None,
+            frames_drawn: 0,
             dev_override,
             auto_check: true,
             checked: false,
@@ -289,6 +305,8 @@ impl App {
                 Done::Checked(result) => self.on_checked(ctx, result),
                 Done::Downloaded(result) => self.on_downloaded(ctx, result),
                 Done::Applied(result) => self.on_applied(result),
+                Done::LauncherChecked(result) => self.on_launcher_checked(ctx, result),
+                Done::LauncherApplied(result) => self.on_launcher_applied(result),
                 Done::ModInstalled { id, result } => {
                     jobs::set(&self.jobs.progress, None);
                     match result {
@@ -324,6 +342,17 @@ pub fn open_folder(path: &std::path::Path) -> std::io::Result<()> {
     #[cfg(not(windows))]
     let program = "xdg-open";
     std::process::Command::new(program).arg(path).spawn().map(|_| ())
+}
+
+/// Opens a web page in the default browser and reports a failure as a note.
+pub fn open_url(app: &mut App, url: &str) {
+    #[cfg(windows)]
+    let program = "explorer";
+    #[cfg(not(windows))]
+    let program = "xdg-open";
+    if let Err(error) = std::process::Command::new(program).arg(url).spawn() {
+        app.error(format!("{url}: {error}"));
+    }
 }
 
 /// Opens a folder and reports a failure as a note.

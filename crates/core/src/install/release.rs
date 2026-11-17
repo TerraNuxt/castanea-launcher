@@ -48,6 +48,31 @@ impl Platform {
             Self::WindowsX86_64 => "castanea.exe",
         }
     }
+
+    /// The launcher executable at the root of a launcher archive.
+    pub fn launcher_binary(self) -> &'static str {
+        match self {
+            Self::LinuxX86_64 => "castanea-launcher",
+            Self::WindowsX86_64 => "castanea-launcher.exe",
+        }
+    }
+}
+
+/// What a release is a build of; the server's `product` parameter (the game when it is left out).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Product {
+    #[default]
+    Game,
+    Launcher,
+}
+
+impl Product {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Game => "game",
+            Self::Launcher => "launcher",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -68,6 +93,9 @@ impl Channel {
 /// One release as the API describes it.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct Release {
+    /// `game` or `launcher`; empty when the server does not say.
+    #[serde(default)]
+    pub product: String,
     pub version: String,
     #[serde(default)]
     pub channel: String,
@@ -84,6 +112,12 @@ pub struct Release {
     /// What changed, as markdown.
     #[serde(default)]
     pub notes: String,
+    /// Base64 ed25519 signature over the release's fields (docs/release-api.md, "Signatures").
+    #[serde(default)]
+    pub signature: Option<String>,
+    /// Hex id of the key that signed it.
+    #[serde(default)]
+    pub key_id: Option<String>,
 }
 
 impl Release {

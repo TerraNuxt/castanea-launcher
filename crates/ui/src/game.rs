@@ -165,7 +165,11 @@ impl App {
             Ok(build) if self.is_running() => self.update = Update::Ready { version: build.version },
             Ok(build) => self.apply(ctx, build.version),
             Err(error) => {
-                let text = self.tr.fill("notes.update_failed", &[("error", &error)]);
+                let text = if error.contains(castanea_launcher_core::NOT_SIGNED) {
+                    self.tr.get("notes.update_unsigned").to_owned()
+                } else {
+                    self.tr.fill("notes.update_failed", &[("error", &error)])
+                };
                 self.error(text);
                 self.update = Update::Failed(error);
             }

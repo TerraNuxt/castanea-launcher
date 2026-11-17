@@ -67,6 +67,7 @@ fn general(app: &mut App, ui: &mut egui::Ui) {
         if widgets::switch_named(ui, &mut offline, app.tr.get("settings.offline")).changed() {
             app.settings.offline = offline;
             app.save_settings();
+            app.reset_launcher_check();
             app.index_loaded = false;
             if offline {
                 if !matches!(app.update, Update::Downloading { .. } | Update::Applying { .. }) {
@@ -75,6 +76,15 @@ fn general(app: &mut App, ui: &mut egui::Ui) {
             } else {
                 app.check_updates(ui.ctx());
             }
+        }
+    });
+    let hint = app.tr.get("settings.launcher_update_hint").to_owned();
+    setting_row(ui, app.tr.get("settings.launcher_update").to_owned(), Some(&hint), |ui| {
+        let mut on = app.settings.launcher_update;
+        if widgets::switch_named(ui, &mut on, app.tr.get("settings.launcher_update")).changed() {
+            app.settings.launcher_update = on;
+            app.save_settings();
+            app.reset_launcher_check();
         }
     });
 }
@@ -286,8 +296,17 @@ fn release_server(app: &mut App, ui: &mut egui::Ui) {
         if widgets::switch_named(ui, &mut beta, app.tr.get("settings.beta")).changed() {
             app.settings.beta = beta;
             app.save_settings();
+            app.reset_launcher_check();
             app.update = Update::Idle;
             app.check_updates(ui.ctx());
+        }
+    });
+    let hint = app.tr.get("settings.allow_unsigned_hint").to_owned();
+    setting_row(ui, app.tr.get("settings.allow_unsigned").to_owned(), Some(&hint), |ui| {
+        let mut on = app.settings.allow_unsigned;
+        if widgets::switch_named(ui, &mut on, app.tr.get("settings.allow_unsigned")).changed() {
+            app.settings.allow_unsigned = on;
+            app.save_settings();
         }
     });
 }

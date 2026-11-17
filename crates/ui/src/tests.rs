@@ -3,6 +3,7 @@
 //! and every string key exists and is used.
 
 mod brand;
+mod launcher;
 mod layout;
 
 use std::fs;
@@ -372,6 +373,7 @@ fn keys_in_code() -> Vec<(String, String)> {
         "browse.",
         "settings.",
         "about.",
+        "launcher.",
     ];
     let mut out = Vec::new();
     let mut stack = vec![Path::new(env!("CARGO_MANIFEST_DIR")).join("src")];

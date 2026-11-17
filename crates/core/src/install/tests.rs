@@ -38,7 +38,7 @@ fn publish(server: &ReleaseServer, dir: &Path, version: &str, channel: &str, not
 }
 
 fn api(server: &ReleaseServer, beta: bool) -> ReleaseApi {
-    ReleaseApi::new(&server.base, platform(), beta).unwrap()
+    ReleaseApi::new(&server.base, platform(), beta).unwrap().with_trust(crate::signature::tests::test_store())
 }
 
 fn fast(api: &ReleaseApi) -> Client {
@@ -464,3 +464,5 @@ fn local_folders_and_checkouts_are_read_in_place() {
     assert!(build.channel.is_empty());
     assert!(local::inspect(&empty).is_err());
 }
+
+mod signed;

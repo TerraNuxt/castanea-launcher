@@ -9,7 +9,7 @@ pub mod source;
 pub mod update;
 
 pub use build::Build;
-pub use release::{Channel, Platform, Release};
+pub use release::{Channel, Platform, Product, Release};
 pub use release_api::ReleaseApi;
 pub use source::GameSource;
 
