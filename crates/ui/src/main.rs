@@ -2,12 +2,17 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app;
+mod chrome;
+mod hero;
 mod i18n;
+mod icons;
 mod jobs;
+mod pages;
+mod probe;
 mod screenshots;
 mod shell;
-mod tabs;
 mod theme;
+mod widgets;
 
 #[cfg(test)]
 mod tests;
@@ -15,10 +20,11 @@ mod tests;
 use std::path::PathBuf;
 
 use castanea_launcher_core::paths::Paths;
+use castanea_launcher_core::settings::Settings;
 use eframe::egui;
 
 const USAGE: &str = "usage: castanea-launcher [--screenshots DIR] [--version]
-  --screenshots DIR   draw each tab once, save PNGs to DIR, then quit
+  --screenshots DIR   draw each page once, save PNGs to DIR, then quit
 Environment: CASTANEA_LAUNCHER_HOME puts config, data and cache below one folder (portable mode).";
 
 struct Launcher {
@@ -31,6 +37,13 @@ impl eframe::App for Launcher {
         shell::ui(&mut self.app, ui);
         if let Some(shots) = &mut self.shots {
             shots.tick(&mut self.app, ui.ctx());
+        }
+    }
+
+    fn raw_input_hook(&mut self, _ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        // Screenshots show no hover or tooltip from wherever the pointer happens to be.
+        if self.shots.is_some() {
+            raw_input.events.retain(|e| !matches!(e, egui::Event::PointerMoved(_) | egui::Event::PointerButton { .. }));
         }
     }
 }
@@ -56,11 +69,13 @@ fn main() -> std::process::ExitCode {
         return std::process::ExitCode::FAILURE;
     };
     let screenshot_mode = shots_dir.is_some();
+    let system_frame = Settings::load(&paths).map(|s| s.system_frame).unwrap_or(false);
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("castanea launcher")
-            .with_inner_size([1080.0, 700.0])
-            .with_min_inner_size([760.0, 480.0])
+            .with_inner_size(theme::layout::START_WINDOW)
+            .with_min_inner_size(theme::layout::MIN_WINDOW)
+            .with_decorations(system_frame && !screenshot_mode)
             .with_app_id("castanea-launcher"),
         persist_window: !screenshot_mode,
         persistence_path: (!screenshot_mode).then(|| paths.data.join("window")),

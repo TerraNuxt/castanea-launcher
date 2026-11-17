@@ -1,8 +1,9 @@
-//! The launcher's state and its actions; the tabs draw it (`tabs/`).
+//! The launcher's state and its actions; the pages draw it (`pages/`).
 
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use castanea_launcher_core::download::{Client, UrlPolicy};
 use castanea_launcher_core::index::client::{self as index_client, ModIndex, StaticIndex};
@@ -12,32 +13,64 @@ use castanea_launcher_core::install::{GameSource, Registry, RemoteBuild, detect,
 use castanea_launcher_core::launch::{self, Outcome, Running};
 use castanea_launcher_core::mods::{InstalledMod, installed};
 use castanea_launcher_core::paths::Paths;
-use castanea_launcher_core::profile::{Profile, Profiles};
+use castanea_launcher_core::profile::{Profile, Profiles, StartIn};
 use castanea_launcher_core::settings::{Settings, SourceConfig};
 use eframe::egui;
 
 use crate::i18n::Strings;
+use crate::icons;
 use crate::jobs::{Done, Jobs};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Tab {
-    Play,
+pub enum Page {
+    Home,
     Mods,
+    Profiles,
     Versions,
+    Log,
+    Notifications,
     Settings,
     About,
 }
 
-impl Tab {
-    pub const ALL: [Self; 5] = [Self::Play, Self::Mods, Self::Versions, Self::Settings, Self::About];
+impl Page {
+    /// Sidebar order, which is also the order of Ctrl+1 … Ctrl+8.
+    pub const ALL: [Self; 8] = [
+        Self::Home,
+        Self::Mods,
+        Self::Profiles,
+        Self::Versions,
+        Self::Log,
+        Self::Notifications,
+        Self::Settings,
+        Self::About,
+    ];
+    /// The pages at the top of the sidebar; the others sit at the bottom.
+    pub const TOP: usize = 5;
 
     pub fn key(self) -> &'static str {
         match self {
-            Self::Play => "tab.play",
-            Self::Mods => "tab.mods",
-            Self::Versions => "tab.versions",
-            Self::Settings => "tab.settings",
-            Self::About => "tab.about",
+            Self::Home => "nav.home",
+            Self::Mods => "nav.mods",
+            Self::Profiles => "nav.profiles",
+            Self::Versions => "nav.versions",
+            Self::Log => "nav.log",
+            Self::Notifications => "nav.notifications",
+            Self::Settings => "nav.settings",
+            Self::About => "nav.about",
+        }
+    }
+
+    pub fn icon(self) -> &'static str {
+        match self {
+            Self::Home => icons::HOUSE,
+            Self::Mods => icons::PUZZLE,
+            Self::Profiles => icons::STACK,
+            Self::Versions => icons::CUBE,
+            Self::Log => icons::TERMINAL,
+            Self::Notifications => icons::BELL,
+            Self::Settings => icons::GEAR,
+            Self::About => icons::INFO,
         }
     }
 }
@@ -56,15 +89,29 @@ pub enum Confirm {
     RemoveProfile { id: String },
 }
 
-pub enum Note {
-    Info(String),
-    Error(String),
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NoteKind {
+    Info,
+    Error,
 }
 
-pub struct Game {
-    pub running: Running,
-    pub command: String,
+/// A message for the notifications page; new ones also show as a toast.
+pub struct Note {
+    pub kind: NoteKind,
+    pub text: String,
+    pub created: Instant,
+    pub seen: bool,
+}
+
+/// One start of the game for one profile: running, or ended with an outcome. Each profile has at most one.
+pub struct Session {
     pub profile: String,
+    pub name: String,
+    pub command: String,
+    pub running: Option<Running>,
+    pub log: Vec<String>,
+    pub log_total: u64,
+    pub outcome: Option<Outcome>,
 }
 
 #[derive(Default)]
@@ -87,14 +134,12 @@ pub struct App {
     pub profiles: Profiles,
     pub registry: Registry,
     pub tr: Strings,
-    pub tab: Tab,
+    pub page: Page,
+    pub page_changed: Option<f64>,
     pub mods_view: ModsView,
     pub profile_id: String,
-    pub editing_profile: bool,
-    pub game: Option<Game>,
-    pub last_outcome: Option<Outcome>,
-    pub log: Vec<String>,
-    pub log_total: u64,
+    pub sessions: Vec<Session>,
+    pub log_profile: Option<String>,
     pub notes: Vec<Note>,
     pub index: Index,
     pub index_warnings: Vec<String>,
@@ -110,27 +155,28 @@ pub struct App {
     pub token_input: String,
     pub new_index: String,
     pub new_source: String,
+    pub join_address: String,
     pub focus_search: bool,
+}
+
+pub fn now_seconds() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
 }
 
 impl App {
     pub fn new(paths: Paths) -> Self {
-        let mut notes = Vec::new();
-        let mut note = |result: Result<(), String>| {
-            if let Err(error) = result {
-                notes.push(Note::Error(error));
-            }
-        };
+        let mut errors = Vec::new();
+        let mut note = |error: String| errors.push(error);
         let settings = Settings::load(&paths).unwrap_or_else(|e| {
-            note(Err(e.to_string()));
+            note(e.to_string());
             Settings::default()
         });
         let profiles = Profiles::load(&paths).unwrap_or_else(|e| {
-            note(Err(e.to_string()));
+            note(e.to_string());
             Profiles { profiles: vec![Profile::default()] }
         });
         let registry = detect::refresh(&paths).unwrap_or_else(|e| {
-            note(Err(e.to_string()));
+            note(e.to_string());
             Registry::default()
         });
         let profile_id = settings
@@ -144,15 +190,13 @@ impl App {
             settings,
             profiles,
             registry,
-            tab: Tab::Play,
+            page: Page::Home,
+            page_changed: None,
             mods_view: ModsView::Installed,
             profile_id,
-            editing_profile: false,
-            game: None,
-            last_outcome: None,
-            log: Vec::new(),
-            log_total: 0,
-            notes,
+            sessions: Vec::new(),
+            log_profile: None,
+            notes: Vec::new(),
             index: Index::default(),
             index_warnings: Vec::new(),
             index_loaded: false,
@@ -167,8 +211,12 @@ impl App {
             token_input: String::new(),
             new_index: String::new(),
             new_source: String::new(),
+            join_address: String::new(),
             focus_search: false,
         };
+        for error in errors {
+            app.error(error);
+        }
         app.reload_mods();
         app
     }
@@ -177,13 +225,22 @@ impl App {
         Client::new(UrlPolicy::default())
     }
 
+    pub fn go(&mut self, page: Page) {
+        if self.page != page {
+            self.page = page;
+            self.page_changed = None;
+        }
+        if page == Page::Notifications {
+            self.notes.iter_mut().for_each(|n| n.seen = true);
+        }
+    }
+
     pub fn profile(&self) -> &Profile {
         self.profiles.get(&self.profile_id).unwrap_or(&self.profiles.profiles[0])
     }
 
     pub fn profile_mut(&mut self) -> &mut Profile {
-        let id = self.profile_id.clone();
-        if self.profiles.get(&id).is_none() {
+        if self.profiles.get(&self.profile_id).is_none() {
             self.profile_id = self.profiles.profiles[0].id.clone();
         }
         let id = self.profile_id.clone();
@@ -196,11 +253,15 @@ impl App {
     }
 
     pub fn error(&mut self, text: impl Into<String>) {
-        self.notes.push(Note::Error(text.into()));
+        self.notes.push(Note { kind: NoteKind::Error, text: text.into(), created: Instant::now(), seen: false });
     }
 
     pub fn info(&mut self, text: impl Into<String>) {
-        self.notes.push(Note::Info(text.into()));
+        self.notes.push(Note { kind: NoteKind::Info, text: text.into(), created: Instant::now(), seen: false });
+    }
+
+    pub fn unread(&self) -> usize {
+        self.notes.iter().filter(|n| !n.seen).count()
     }
 
     pub fn save_settings(&mut self) {
@@ -222,6 +283,9 @@ impl App {
     }
 
     pub fn set_profile(&mut self, id: String) {
+        if id == self.profile_id {
+            return;
+        }
         self.profile_id = id.clone();
         self.settings.last_profile = Some(id);
         self.save_settings();
@@ -369,54 +433,115 @@ impl App {
         }
     }
 
+    pub fn session(&self, profile: &str) -> Option<&Session> {
+        self.sessions.iter().find(|s| s.profile == profile)
+    }
+
+    pub fn is_running(&self, profile: &str) -> bool {
+        self.session(profile).is_some_and(|s| s.running.is_some())
+    }
+
+    pub fn any_running(&self) -> bool {
+        self.sessions.iter().any(|s| s.running.is_some())
+    }
+
+    /// Starts the current profile.
     pub fn play(&mut self) {
-        if self.game.is_some() {
+        let id = self.profile_id.clone();
+        self.play_profile(&id, None);
+    }
+
+    /// Starts a profile, optionally just this once with another start (joining an address from the home page).
+    pub fn play_profile(&mut self, id: &str, start: Option<StartIn>) {
+        if self.is_running(id) {
             return;
         }
-        let profile = self.profile().clone();
+        let Some(mut profile) = self.profiles.get(id).cloned() else { return };
+        if let Some(start) = start {
+            profile.start = start;
+        }
         match launch::launch(&self.paths, &self.registry, &profile, self.settings.log_lines) {
             Ok((plan, running)) => {
-                self.log.clear();
-                self.log_total = 0;
-                self.last_outcome = None;
-                self.game = Some(Game { running, command: plan.display(), profile: profile.id });
+                self.sessions.retain(|s| s.profile != id);
+                self.sessions.push(Session {
+                    profile: id.to_owned(),
+                    name: profile.name.clone(),
+                    command: plan.display(),
+                    running: Some(running),
+                    log: Vec::new(),
+                    log_total: 0,
+                    outcome: None,
+                });
+                self.log_profile = Some(id.to_owned());
+                if let Some(saved) = self.profiles.get_mut(id) {
+                    saved.last_played = Some(now_seconds());
+                }
+                self.save_profiles();
             }
             Err(error) => self.error(error.to_string()),
         }
     }
 
-    /// Copies new output and notices the exit; called every frame while a game runs.
-    pub fn poll_game(&mut self) {
-        let Some(game) = &mut self.game else { return };
-        if let Ok(log) = game.running.log.lock()
-            && log.total != self.log_total
-        {
-            self.log = log.lines.iter().cloned().collect();
-            self.log_total = log.total;
-        }
-        match game.running.poll() {
-            Ok(None) => {}
-            Ok(Some(outcome)) => {
-                if let Ok(log) = game.running.log.lock() {
-                    self.log = log.lines.iter().cloned().collect();
+    /// Copies new output and notices exits; called every frame while a game runs.
+    pub fn poll_sessions(&mut self) {
+        let mut ended = Vec::new();
+        let mut failed = Vec::new();
+        for session in &mut self.sessions {
+            let Some(running) = &mut session.running else { continue };
+            if let Ok(log) = running.log.lock()
+                && log.total != session.log_total
+            {
+                session.log = log.lines.iter().cloned().collect();
+                session.log_total = log.total;
+            }
+            match running.poll() {
+                Ok(None) => {}
+                Ok(Some(outcome)) => {
+                    if let Ok(log) = running.log.lock() {
+                        session.log = log.lines.iter().cloned().collect();
+                    }
+                    ended.push((session.name.clone(), outcome.clone()));
+                    session.outcome = Some(outcome);
+                    session.running = None;
                 }
-                self.last_outcome = Some(outcome);
-                self.game = None;
+                Err(error) => {
+                    failed.push(error.to_string());
+                    session.running = None;
+                }
             }
-            Err(error) => {
-                self.game = None;
-                self.error(error.to_string());
+        }
+        for (name, outcome) in ended {
+            let code = outcome.code.map_or("-".to_owned(), |c| c.to_string());
+            if outcome.crashed {
+                let text = self.tr.fill("notes.crashed", &[("profile", &name), ("code", &code)]);
+                self.error(text);
+            } else {
+                let text = self.tr.fill("notes.ended", &[("profile", &name)]);
+                self.info(text);
             }
+        }
+        for error in failed {
+            self.error(error);
         }
     }
 
-    pub fn stop_game(&mut self) {
-        if let Some(game) = &mut self.game {
-            match game.running.stop() {
-                Ok(outcome) => self.last_outcome = Some(outcome),
-                Err(error) => self.notes.push(Note::Error(error.to_string())),
+    pub fn stop(&mut self, profile: &str) {
+        let mut result = None;
+        if let Some(session) = self.sessions.iter_mut().find(|s| s.profile == profile)
+            && let Some(mut running) = session.running.take()
+        {
+            match running.stop() {
+                Ok(outcome) => {
+                    if let Ok(log) = running.log.lock() {
+                        session.log = log.lines.iter().cloned().collect();
+                    }
+                    session.outcome = Some(outcome);
+                }
+                Err(error) => result = Some(error.to_string()),
             }
-            self.game = None;
+        }
+        if let Some(error) = result {
+            self.error(error);
         }
     }
 
@@ -433,4 +558,11 @@ pub fn open_folder(path: &std::path::Path) -> std::io::Result<()> {
     #[cfg(not(windows))]
     let program = "xdg-open";
     std::process::Command::new(program).arg(path).spawn().map(|_| ())
+}
+
+/// Opens a folder and reports a failure as a note.
+pub fn open_or_note(app: &mut App, path: &std::path::Path) {
+    if let Err(error) = open_folder(path) {
+        app.error(format!("{}: {error}", path.display()));
+    }
 }

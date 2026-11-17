@@ -105,9 +105,9 @@ mod tests {
     #[test]
     fn fill_and_missing_keys() {
         let strings = Strings::load("de");
-        assert_eq!(strings.get("tab.play"), "Spielen");
+        assert_eq!(strings.get("play.play"), "Spielen");
         assert_eq!(strings.get("no.such.key"), "no.such.key");
-        assert_eq!(Strings::load("xx").get("tab.play"), "Play");
+        assert_eq!(Strings::load("xx").get("play.play"), "Play");
         let text = Strings::load("en").fill("play.exited", &[("code", "3"), ("seconds", "12")]);
         assert!(text.contains('3') && text.contains("12"), "{text}");
     }
