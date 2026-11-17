@@ -141,7 +141,8 @@ fn row(
                 {
                     *action = Some(Action::Update(package.id().to_owned()));
                 }
-                let kind = if package.packaging == Packaging::Zip { "zip" } else { "folder" };
+                let kind =
+                    app.tr.get(if package.packaging == Packaging::Zip { "mods.kind_zip" } else { "mods.kind_folder" });
                 ui.label(RichText::new(format!("{} · {kind}", package.id())).small().color(theme::MUTED));
             });
         });

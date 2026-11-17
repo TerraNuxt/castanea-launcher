@@ -85,7 +85,9 @@
   "mods.declares_data": "Data only: no code",
   "mods.also_enable": "Also enabled with it: {list}",
   "mods.aliases": "Renames {count} ids (aliases)",
-  "mods.files": "{count} files: {kinds}",
+  "mods.files": "Files: {count} ({kinds})",
+  "mods.kind_zip": "zip",
+  "mods.kind_folder": "folder",
   "mods.remove_title": "Remove mod?",
   "mods.remove_body": "{name} is deleted from this profile's mods folder.",
 

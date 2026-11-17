@@ -111,11 +111,14 @@ fn status_bar(app: &mut App, ui: &mut egui::Ui) {
     });
 }
 
+/// `1.5 MB`, `12 KB`; with a total, `done / total`.
 pub fn megabytes(done: u64, total: Option<u64>) -> String {
-    let mb = |b: u64| b as f64 / 1_048_576.0;
+    let size = |b: u64| {
+        if b < 1 << 20 { format!("{} KB", b.div_ceil(1024)) } else { format!("{:.1} MB", b as f64 / 1_048_576.0) }
+    };
     match total {
-        Some(total) => format!("{:.1} / {:.1} MB", mb(done), mb(total)),
-        None => format!("{:.1} MB", mb(done)),
+        Some(total) => format!("{} / {}", size(done), size(total)),
+        None => size(done),
     }
 }
 

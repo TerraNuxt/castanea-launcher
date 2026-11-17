@@ -85,7 +85,9 @@
   "mods.declares_data": "Nur Daten: kein Code",
   "mods.also_enable": "Wird mit aktiviert: {list}",
   "mods.aliases": "Benennt {count} IDs um (Aliase)",
-  "mods.files": "{count} Dateien: {kinds}",
+  "mods.files": "Dateien: {count} ({kinds})",
+  "mods.kind_zip": "Zip",
+  "mods.kind_folder": "Ordner",
   "mods.remove_title": "Mod entfernen?",
   "mods.remove_body": "{name} wird aus dem Mod-Ordner dieses Profils gelöscht.",
 

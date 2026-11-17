@@ -5,14 +5,14 @@ use std::sync::{Arc, Mutex};
 
 use eframe::egui;
 
-use crate::app::{App, ModsView, Tab};
+use crate::app::{App, Confirm, ModsView, Tab};
 
 struct Step {
     name: &'static str,
     setup: fn(&mut App),
 }
 
-const STEPS: [Step; 7] = [
+const STEPS: [Step; 9] = [
     Step { name: "play", setup: |app| app.tab = Tab::Play },
     Step {
         name: "play-log",
@@ -44,8 +44,32 @@ const STEPS: [Step; 7] = [
             app.browse.selected = app.index.mods.first().map(|m| m.id.clone());
         },
     },
-    Step { name: "versions", setup: |app| app.tab = Tab::Versions },
+    Step {
+        name: "mods-enable",
+        setup: |app| {
+            app.tab = Tab::Mods;
+            app.mods_view = ModsView::Installed;
+            app.confirm =
+                app.mods.iter().find(|m| !m.enabled).map(|m| Confirm::EnableMod { file_name: m.file_name.clone() });
+        },
+    },
+    Step {
+        name: "versions",
+        setup: |app| {
+            app.confirm = None;
+            app.tab = Tab::Versions;
+        },
+    },
     Step { name: "settings", setup: |app| app.tab = Tab::Settings },
+    Step {
+        name: "mods-installed-de",
+        setup: |app| {
+            app.settings.language = "de".to_owned();
+            app.reload_language();
+            app.tab = Tab::Mods;
+            app.mods_view = ModsView::Installed;
+        },
+    },
 ];
 
 pub struct Shots {

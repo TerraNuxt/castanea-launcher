@@ -18,8 +18,10 @@ pub fn apply(ctx: &egui::Context) {
     visuals.extreme_bg_color = Color32::from_rgb(16, 16, 18);
     visuals.faint_bg_color = CARD;
     visuals.selection.bg_fill = ACCENT_DARK;
-    visuals.selection.stroke = Stroke::new(1.0, ACCENT);
+    visuals.selection.stroke = Stroke::new(1.0, Color32::WHITE);
     visuals.hyperlink_color = ACCENT;
+    visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Color32::from_rgb(214, 214, 214));
+    visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, Color32::from_rgb(226, 226, 226));
     let radius = CornerRadius::same(4);
     for widget in [
         &mut visuals.widgets.noninteractive,
