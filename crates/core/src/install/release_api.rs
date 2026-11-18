@@ -207,6 +207,31 @@ pub(crate) fn loopback(url: &str) -> bool {
     UrlPolicy { allow_loopback_http: true }.check(url).is_ok() && url.starts_with("http://")
 }
 
+impl ReleaseApi {
+    /// The unpacked folder must hold this platform's binary and `assets/`; it is then described by its `install.json`.
+    fn finish(&self, release: &Release, dest: &Path) -> Result<Build> {
+        let binary = dest.join(self.platform.binary());
+        if !binary.is_file() || !dest.join("assets").is_dir() {
+            return Err(Error::invalid(format!(
+                "release {}: the archive must hold {} and assets/ at its top",
+                release.version,
+                self.platform.binary()
+            )));
+        }
+        let built = Build {
+            version: release.version.clone(),
+            channel: release.channel.clone(),
+            released_at: release.released_at.clone(),
+            notes: notes::plain(&release.notes),
+            sha256: Some(release.sha256.clone()),
+            root: dest.to_path_buf(),
+            binary,
+        };
+        built.write()?;
+        Ok(built)
+    }
+}
+
 impl GameSource for ReleaseApi {
     /// The newest stable release, or the newest of stable and beta when beta builds are on.
     fn latest(&self, client: &Client) -> Result<Option<Release>> {
@@ -233,26 +258,11 @@ impl GameSource for ReleaseApi {
         let zip = self.fetch_verified(client, release, downloads_dir, MAX_ARCHIVE, progress, cancel)?;
         let unpacked = archive::extract(&zip, dest, Limits::GAME);
         let _ = fs::remove_file(&zip);
-        unpacked?;
-        let binary = dest.join(self.platform.binary());
-        if !binary.is_file() || !dest.join("assets").is_dir() {
+        let built = unpacked.and_then(|()| self.finish(release, dest));
+        // A failed unpack or check leaves no staging folder behind; the installed build is not touched.
+        if built.is_err() {
             let _ = fs::remove_dir_all(dest);
-            return Err(Error::invalid(format!(
-                "release {}: the archive must hold {} and assets/ at its top",
-                release.version,
-                self.platform.binary()
-            )));
         }
-        let built = Build {
-            version: release.version.clone(),
-            channel: release.channel.clone(),
-            released_at: release.released_at.clone(),
-            notes: notes::plain(&release.notes),
-            sha256: Some(release.sha256.clone()),
-            root: dest.to_path_buf(),
-            binary,
-        };
-        built.write()?;
-        Ok(built)
+        built
     }
 }

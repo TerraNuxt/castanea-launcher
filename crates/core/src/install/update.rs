@@ -2,7 +2,7 @@
 //!
 //! `build/current` is the build the game runs from. An update is downloaded, checked and unpacked into `build/next`
 //! while `current` stays untouched; only then `current` moves to `build/previous`, `next` becomes `current`, and
-//! `previous` is deleted. A failed download or check never touches `current`.
+//! `previous` is deleted. A failed download or check never touches `current`; start-up removes what a stopped update left.
 
 use std::fs;
 use std::io;
@@ -89,14 +89,16 @@ fn forget_other_downloads(dir: &Path, keep: &str) {
     }
 }
 
-/// Makes `build/next` the installed build. The old one is deleted once the swap worked, and put back if it did not.
-/// The game must not be running (Windows cannot move a folder with a running program in it).
+/// Makes `build/next` the installed build. The old one goes once the swap worked; if the swap fails, `current` is
+/// put back and nothing else changes. The game must not be running (Windows cannot move a folder with a running
+/// program in it).
 pub fn activate(paths: &Paths) -> Result<Build> {
     let (current, next, previous) = (current_dir(paths), next_dir(paths), previous_dir(paths));
-    if Build::read(&next).is_none() {
+    let Some(new) = Build::read(&next) else {
         return Err(Error::invalid(format!("{}: no downloaded build to use", next.display())));
-    }
+    };
     if current.exists() {
+        // Nothing is moved yet: a folder that cannot be removed stops the update with the installed build untouched.
         remove_dir(&previous)?;
         rename(&current, &previous)?;
     }
@@ -106,9 +108,35 @@ pub fn activate(paths: &Paths) -> Result<Build> {
         }
         return Err(error);
     }
-    // A leftover `previous` is harmless: it is removed before the next swap.
+    // Best effort: a file a program still holds is left for the next start (`clean_leftovers`), never a failure.
     let _ = remove_dir(&previous);
+    if let Some(sha) = &new.sha256 {
+        forget_archive(&paths.downloads(), sha);
+    }
     Build::read(&current).ok_or_else(|| Error::invalid(format!("{}: the new build is incomplete", current.display())))
+}
+
+/// Deletes the archive and partial file of a build that is now installed; nothing of it is needed any more.
+fn forget_archive(dir: &Path, sha256: &str) {
+    for name in [format!("{sha256}.zip"), format!("{sha256}.part")] {
+        let _ = fs::remove_file(dir.join(name));
+    }
+}
+
+/// At start, before anything downloads: removes `next` and `previous` left by an update that stopped. When `current` is
+/// gone or broken and `previous` holds a whole build, that build is put back as `current`.
+pub fn clean_leftovers(paths: &Paths) {
+    let (current, next, previous) = (current_dir(paths), next_dir(paths), previous_dir(paths));
+    let _ = remove_dir(&next);
+    if Build::read(&current).is_some() {
+        let _ = remove_dir(&previous);
+    } else if Build::read(&previous).is_some() {
+        if remove_dir(&current).is_ok() {
+            let _ = rename(&previous, &current);
+        }
+    } else {
+        let _ = remove_dir(&previous);
+    }
 }
 
 /// Retries a few times: on Windows a virus scanner may hold a fresh file for a moment.
@@ -117,19 +145,37 @@ fn rename(from: &Path, to: &Path) -> Result<()> {
     loop {
         match fs::rename(from, to) {
             Ok(()) => return Ok(()),
-            Err(error) if tries < 5 && error.kind() == io::ErrorKind::PermissionDenied => {
+            Err(error) if tries < RETRIES && error.kind() == io::ErrorKind::PermissionDenied => {
                 tries += 1;
-                std::thread::sleep(Duration::from_millis(200));
+                std::thread::sleep(RETRY_WAIT);
             }
             Err(error) => return Err(Error::io(from, error)),
         }
     }
 }
 
+/// Removes a folder, retrying quietly when a file in it is locked (a virus scanner, a program that is just exiting).
 fn remove_dir(dir: &Path) -> Result<()> {
-    match fs::remove_dir_all(dir) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(Error::io(dir, error)),
+    match retry_quietly(|| fs::remove_dir_all(dir)) {
+        Err(error) if error.kind() != io::ErrorKind::NotFound => Err(Error::io(dir, error)),
+        _ => Ok(()),
     }
 }
+
+/// Runs `op`, and again after a short wait while it fails for a reason that may pass (not `NotFound`). The last result
+/// is returned; nothing is logged.
+pub(super) fn retry_quietly(mut op: impl FnMut() -> io::Result<()>) -> io::Result<()> {
+    let mut tries = 0;
+    loop {
+        match op() {
+            Err(error) if error.kind() != io::ErrorKind::NotFound && tries < RETRIES => {
+                tries += 1;
+                std::thread::sleep(RETRY_WAIT);
+            }
+            result => return result,
+        }
+    }
+}
+
+const RETRIES: u32 = 5;
+const RETRY_WAIT: Duration = Duration::from_millis(200);

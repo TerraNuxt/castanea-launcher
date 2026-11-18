@@ -25,6 +25,7 @@ mod tests;
 use std::path::PathBuf;
 
 use castanea_launcher_core::install::local::GAME_DIR_ENV;
+use castanea_launcher_core::install::update;
 use castanea_launcher_core::paths::Paths;
 use castanea_launcher_core::selfupdate::{self, Layout, Os, Startup};
 use eframe::egui;
@@ -95,6 +96,10 @@ fn main() -> std::process::ExitCode {
     let screenshot_mode = shots_dir.is_some();
     // Screenshots never touch the installed launcher.
     let layout = if screenshot_mode { None } else { Layout::detect() };
+    // Before anything downloads: an update that stopped left `next` or `previous` behind.
+    if !screenshot_mode {
+        update::clean_leftovers(&paths);
+    }
     if let Some(layout) = &layout {
         match selfupdate::startup(Os::current(), &paths, layout, launcher::VERSION) {
             Startup::RolledBack { failed, restored } => {

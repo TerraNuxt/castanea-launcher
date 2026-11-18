@@ -216,7 +216,7 @@
   "storage.cache": "Zwischenspeicher",
   "storage.cache_hint": "Neuigkeiten, Downloads, Modlisten und Grafikprüfungen. Füllt sich bei Bedarf wieder.",
   "storage.game": "Spiel",
-  "storage.game_hint": "Die installierten Spielversionen. Mit Spielen wird das Spiel neu geladen.",
+  "storage.game_hint": "Die installierte Spielversion. Mit Spielen wird sie neu geladen.",
   "storage.mods": "Mods",
   "storage.mods_hint": "Installierte und ausgeschaltete Mods.",
   "storage.logs": "Protokolle",

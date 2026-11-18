@@ -28,7 +28,7 @@ use crate::paths::Paths;
 pub enum Row {
     /// News, mod index and image caches, downloads in progress, the graphics probe results, launcher update files.
     Cache,
-    /// The installed game builds (`build/`) and the link to their assets.
+    /// The installed game build (`build/`) and the link to its assets.
     Game,
     Mods,
     /// The game's output logs.

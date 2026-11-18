@@ -179,7 +179,7 @@ launcher does not translate or fall back between languages.
 | Verify | The finished file is hashed (SHA-256) and compared with the API's `sha256`, and its length with `size`. A mismatch deletes the file; the installed build stays; the home page says the download failed. |
 | Signature | After the hash: see [Signatures](#signatures). Nothing is unpacked before it holds. |
 | Unpack | The existing zip limits (entry count, unpacked size, no `..`, no absolute paths, no symlinks). The result must have the platform's executable and `assets/`, else it is refused and deleted. |
-| Swap | `build/next` → `build/current` through `build/previous`, put back on failure (docs/design.md). |
+| Swap | `build/next` → `build/current` through `build/previous`; `previous` is deleted after the swap, put back on failure, and only `current` is left (docs/design.md). |
 | Notes | Kept in `install.json`; "What's new" on the home page shows them (during the download: those of the new version). |
 
 ## Error handling

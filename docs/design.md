@@ -76,8 +76,8 @@ over a channel. `ui/game.rs` holds the game's update state machine and the runni
 data/
   build/
     current/               the installed release: castanea[.exe], assets/, install.json (version, channel, released_at, notes, sha256)
-    next/                  only during an update: the new build, checked and unpacked
-    previous/              only during the swap: the old build, put back if the swap fails
+    next/                  only during an update: the new build, checked and unpacked (a leftover from a stopped update is removed at start)
+    previous/              only during the swap: the old build, deleted once the new one is in place (a leftover is removed at start)
   game/                    the game's working directory
     assets -> ../build/current/assets   a symlink (Linux) or junction (Windows), checked at each start
     mods/                  the mods; mods/.disabled/ holds disabled ones (the game skips names with a dot)
@@ -121,12 +121,17 @@ folder links the build's assets in. The link points at `build/current`, so it st
   bytes of a resumed file are from one build; a server that ignores `Range` (answers 200) restarts the file. The
   finished file is hashed as a whole; a mismatch deletes it. Partial files of other builds are deleted when a new
   download starts.
-- **The swap** (`update::activate`): `current` moves to `previous`, `next` becomes `current`, `previous` is deleted.
-  If moving `next` fails, `previous` is put back. If the launcher stops half way, `previous` is found and used at the
-  next start. The swap waits while the game runs (Windows cannot move a folder with a running program in it); it
-  happens when the game ends.
+- **The swap** (`update::activate`): `current` moves to `previous`, `next` becomes `current`, `previous` is deleted, and
+  the archive of the installed build is removed. Nothing else is kept: no old build, no copy, no partial file of it. If
+  moving `next` fails, `previous` is put back and the old build stays as it was. A folder a program or a virus scanner
+  still holds is retried quietly for a second and then left; the start-up clean-up removes it later, and a failure of
+  the removal never fails the update. The swap waits while the game runs (Windows cannot move a folder with a running
+  program in it); it happens when the game ends.
+- **Start-up clean-up** (`update::clean_leftovers`, before the window opens and before any download): `next` is removed;
+  if `current` is whole, `previous` is removed; if `current` is gone or broken and `previous` is a whole build (a swap that
+  stopped half way), `previous` is put back as `current`.
 - **A failed download** (network, size, SHA-256 mismatch, a zip without the game) deletes what it wrote, except a
-  partial file that can be resumed; the installed build stays and the home page says the check failed, with Try again.
+  partial file that can be resumed; a zip that unpacks but fails its check takes its `next` folder with it; the installed build stays and the home page says the check failed, with Try again.
   Old builds are never kept or offered as a choice.
 - **Offline** (offline mode, or no network): no check; the installed build is used. With nothing installed, Play is
   off and the home page says to go online once.
@@ -230,7 +235,8 @@ game's update flow above is separate and unchanged.
 - **Rollback** (a file-based state machine, `selfupdate::startup`, first thing in `main`): before applying, the launcher
   writes `<data>/launcher-update/update-pending` (from, to, time). The new launcher stamps `started_at` into it when it
   starts, and the marker is deleted after the third drawn frame, which also deletes `.old`/`.bad`/`.new` (quietly retried
-  for 5 seconds if a file is locked). A marker that is still stamped at the next start means the new launcher never drew
+  for 5 seconds if a file is locked). The staged launcher (`staged/`, `staged.json`) is deleted as soon as it is in place,
+  so after a good start the folder holds nothing. A marker that is still stamped at the next start means the new launcher never drew
   a frame (it crashed, within seconds of starting): that start restores `.old` over the executable (on Windows the broken
   exe is first renamed to `.bad.exe`), writes the failed version to `skip.json`, deletes the marker, starts the
   restored launcher and exits. A marker for another version than the running one is stale and dropped. With no `.old` to
@@ -248,7 +254,7 @@ size and its own Delete button (`crates/core/src/storage.rs`, the page in `crate
 | Row | What it holds (paths below the three folders above) | Deleted by Delete everything |
 |---|---|---|
 | Cache | everything in `cache/` (index, images, news, downloads and `.part` files), `data/backend.json` (probe results and the crash memory of Vulkan starts), `data/launcher-update/` (the staged launcher, the update marker, the skip list) | yes |
-| Game | `data/build/` (`current`, and `next` or `previous` during an update) and the link `data/game/assets` | yes |
+| Game | `data/build/` (`current`; `next` or `previous` only during an update or left by one that stopped, removed at the next start) and the link `data/game/assets` | yes |
 | Mods | `data/game/mods/` (enabled and `.disabled`) | yes |
 | Logs | `data/game/logs/` (`latest.log` and the older stamped ones) | yes |
 | Launcher settings | everything in `config/` (`launcher.json`, a leftover `github-token`, old `profiles.json`) and `data/window/` (the window state) | yes |

@@ -216,7 +216,7 @@
   "storage.cache": "Cache",
   "storage.cache_hint": "News, downloads, mod lists and graphics checks. It fills up again when needed.",
   "storage.game": "Game",
-  "storage.game_hint": "The installed game builds. Play downloads the game again.",
+  "storage.game_hint": "The installed game build. Play downloads it again.",
   "storage.mods": "Mods",
   "storage.mods_hint": "Installed and switched-off mods.",
   "storage.logs": "Logs",

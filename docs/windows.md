@@ -10,7 +10,7 @@ CI runs clippy, the tests and a release build on `windows-latest`.
 |---|---|
 | Folders | config `%APPDATA%\castanea-launcher`, data and cache `%LOCALAPPDATA%\castanea-launcher` |
 | The build's `assets/` in the game folder | a directory junction (no admin rights, no developer mode); Linux uses a symlink |
-| Updating the build | the swap of `build\next` and `build\current` waits until the game has ended (Windows cannot move a folder with a running program in it); a rename that a virus scanner blocks is tried again 5 times |
+| Updating the build | the swap of `build\next` and `build\current` waits until the game has ended (Windows cannot move a folder with a running program in it); a rename or delete that a virus scanner blocks is tried again 5 times, quietly; `build\previous` still locked afterwards is removed at the next start. Only `build\current` is left after an update ([design.md](design.md#the-game-build)) |
 | Updating the launcher | the running exe is renamed to `castanea-launcher.old.exe` and the new exe takes its name (a running exe can be renamed, not overwritten or deleted); a restart finishes it and the old file is deleted after the new launcher drew a few frames ([design.md](design.md#launcher-self-update)) |
 | Starting the game | `DETACHED_PROCESS` + `CREATE_NEW_PROCESS_GROUP` (+ `CREATE_BREAKAWAY_FROM_JOB` when the job allows it): no console, no Ctrl+C shared with the launcher, not in the launcher's job; output goes to `logs\latest.log` directly; closing the launcher leaves the game running |
 | Game binary | `castanea.exe` |
@@ -34,6 +34,7 @@ Please try these on a Windows PC and report what fails:
 3. An update while the game runs: start the game, publish (or fake with a local folder of releases) a newer release,
    restart the launcher while the game is still running: the download finishes, the line says the new version starts
    next time, and after closing the game the swap happens with no error (no "access denied" from a locked folder).
+   Afterwards `%LOCALAPPDATA%\castanea-launcher\data\build` holds only `current` (no `previous`, no `next`).
 4. Offline: Settings → Offline mode on, restart: no network request, `offline` in the status line, Play still works.
    Pull the network cable instead: the status line says it could not check, Try again works once the network is back.
 5. A crash: Settings → Extra arguments `--world` (a value the game refuses) and Play: the launcher says it crashed and

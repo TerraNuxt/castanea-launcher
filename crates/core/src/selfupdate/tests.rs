@@ -432,6 +432,31 @@ fn a_launcher_that_draws_its_first_frame_keeps_the_update_and_deletes_the_old_on
 }
 
 #[test]
+fn after_a_good_start_only_the_new_launcher_is_left() {
+    for os in [Os::Unix, Os::Windows] {
+        let (_dir, paths, layout, staged) = setup(os);
+        let files = Files::new(&paths);
+        fs::create_dir_all(files.staged_dir()).unwrap();
+        fs::write(files.staged_dir().join("castanea-launcher"), "NEW").unwrap();
+        files.set_staged(&staged).unwrap();
+        fs::create_dir_all(files.unpack_dir()).unwrap();
+        apply(os, &layout, &files, &staged, "0.1.0").unwrap();
+        assert!(!files.staged_dir().exists() && !files.unpack_dir().exists() && files.staged().is_none(), "{os:?}");
+        assert_eq!(startup(os, &paths, &layout, "0.2.0"), Startup::Normal);
+        first_frame(&paths, &layout);
+        for _ in 0..50 {
+            if layout.leftovers().iter().all(|p| !p.exists()) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        assert!(layout.leftovers().iter().all(|p| !p.exists()), "{os:?}: old, bad and incoming are gone");
+        assert_eq!(fs::read_to_string(&layout.exe).unwrap(), "NEW", "{os:?}");
+        assert_eq!(fs::read_dir(&files.dir).map_or(0, |d| d.count()), 0, "{os:?}: no marker, no staging left");
+    }
+}
+
+#[test]
 fn a_rollback_without_a_backup_still_clears_the_marker_and_skips_the_version() {
     let (_dir, paths, layout, staged) = setup(Os::Unix);
     let files = Files::new(&paths);

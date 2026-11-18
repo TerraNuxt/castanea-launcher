@@ -465,4 +465,5 @@ fn local_folders_and_checkouts_are_read_in_place() {
     assert!(local::inspect(&empty).is_err());
 }
 
+mod cleanup;
 mod signed;

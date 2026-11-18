@@ -71,7 +71,7 @@ impl Paths {
         self.game().join("mods")
     }
 
-    /// The installed release lives in `build/current`; `next` and `previous` exist only during an update.
+    /// The installed release lives in `build/current`; `next` and `previous` exist only during an update or after one stopped.
     pub fn build(&self) -> PathBuf {
         self.data.join("build")
     }

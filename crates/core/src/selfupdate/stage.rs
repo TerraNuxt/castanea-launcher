@@ -46,7 +46,6 @@ pub fn stage(
         files.clear_staged();
         return Err(Error::invalid(format!("launcher {}: the archive must hold {name} at its top", release.version)));
     }
-    fs::rename(files.unpack_dir(), files.staged_dir()).map_err(|error| Error::io(&files.staged_dir(), error))?;
     let staged = Staged {
         version: release.version.clone(),
         channel: release.channel.clone(),
@@ -54,6 +53,12 @@ pub fn stage(
         notes: notes::plain(&release.notes),
         binary: files.staged_dir().join(name),
     };
-    files.set_staged(&staged)?;
+    let recorded = fs::rename(files.unpack_dir(), files.staged_dir())
+        .map_err(|error| Error::io(&files.staged_dir(), error))
+        .and_then(|()| files.set_staged(&staged));
+    if let Err(error) = recorded {
+        files.clear_staged();
+        return Err(error);
+    }
     Ok(staged)
 }
