@@ -16,7 +16,7 @@ CI runs clippy, the tests and a release build on `windows-latest`.
 | Game binary | `castanea.exe` |
 | Release | platform `windows-x86_64` of the release API; the zip holds `castanea.exe` and `assets` |
 | System language | `LANG` if set, else `HKCU\Control Panel\International\LocaleName` |
-| Renderer of the launcher | wgpu picks DX12, then Vulkan, then GL |
+| Renderer of the launcher | wgpu with DX12 and GL only (`WGPU_BACKEND` overrides): wgpu's own pick reached a crashing Intel Vulkan driver |
 | Renderer of the game | the launcher probes the game (`--probe-gpu`) and passes `CASTANEA_BACKEND=vulkan` when Vulkan works, else `wgpu` (DX12) ([game-launch.md](game-launch.md)) |
 | Window frame | the system frame (snapping, shadow and resizing are Windows' own) |
 | Open folder | `explorer <folder>` |
@@ -59,7 +59,9 @@ Set up: copy `castanea-launcher.exe` of an older version (say 0.1.0) to a writab
 `%USERPROFILE%\Downloads\cl-test`, publish a newer launcher (0.2.0, `windows-x86_64`) to a test release server, and point the
 old one at it with `set CASTANEA_RELEASE_URL=http://127.0.0.1:PORT` (loopback `http` works) and a test key list
 (`CASTANEA_TRUST_KEYS_FILE`, debug builds only) or a server that signs with the real key. Use
-`CASTANEA_LAUNCHER_HOME=C:\cl-home` so nothing touches your real data.
+`CASTANEA_LAUNCHER_HOME=C:\cl-home` so nothing touches your real data. A local server is `tools/test_release_server.py`
+(`python3 tools/test_release_server.py MANIFEST.json --port 8765`, `--pubkey` prints the test key for the key file); the signed flows
+need a debug-assertions build. Items 15 to 17 and 19 to 22 were run this way on 2026-11-18: [windows-test-2026-11-18.md](windows-test-2026-11-18.md).
 
 15. **The rename trick.** Start the old exe. After the check the line in About changes to `update 0.2.0 downloading …`, then
     `restart to update to 0.2.0`. In the folder next to the running exe there are now `castanea-launcher.exe` (the new one,
@@ -74,8 +76,8 @@ old one at it with `set CASTANEA_RELEASE_URL=http://127.0.0.1:PORT` (loopback `h
 18. **Antivirus and SmartScreen.** Note whether Defender or SmartScreen warns about the new exe or blocks the rename;
     the code retries a blocked rename 5 times. An exe without Authenticode signing may get a SmartScreen prompt on the
     first start of a downloaded copy; that is expected until it is signed.
-19. **Rollback.** Publish a 0.3.0 whose exe exits at once (or replace the staged exe in
-    `data\launcher-update\staged` by a program that exits, before the restart). Restart: the window never opens, start
+19. **Rollback.** Publish a 0.3.0 that is a real launcher build failing at start (the rollback runs in the launcher's own start code, so
+    a foreign program such as `whoami.exe` cannot be rolled back). Restart: the window never opens, start
     again: the old 0.2.0 is back (`castanea-launcher.exe` is the old one, the broken one is `castanea-launcher.bad.exe` and
     goes away later), About lists `0.3.0` as skipped and no update is offered for it.
 20. **Refused downloads.** Publish a launcher 0.4.0 without a signature, or signed by another key: About says `update 0.4.0

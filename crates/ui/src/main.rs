@@ -101,12 +101,19 @@ fn main() -> std::process::ExitCode {
         .with_app_id("castanea-launcher");
     // Screenshots may ask for a window below the minimum, to show the narrow layout.
     let viewport = if screenshot_mode { viewport } else { viewport.with_min_inner_size(theme::layout::MIN_WINDOW) };
-    let options = eframe::NativeOptions {
+    #[allow(unused_mut)]
+    let mut options = eframe::NativeOptions {
         viewport,
         persist_window: !screenshot_mode,
         persistence_path: (!screenshot_mode).then(|| paths.data.join("window")),
         ..Default::default()
     };
+    // Windows: DX12 then GL, not Vulkan (an Intel UHD Vulkan driver crashes in wgpu); WGPU_BACKEND still wins.
+    #[cfg(windows)]
+    if let eframe::egui_wgpu::WgpuSetup::CreateNew(create) = &mut options.wgpu_options.wgpu_setup {
+        create.instance_descriptor.backends =
+            eframe::wgpu::Backends::from_env().unwrap_or(eframe::wgpu::Backends::DX12 | eframe::wgpu::Backends::GL);
+    }
     let shots = shots_dir.map(screenshots::Shots::new);
     let failed = shots.as_ref().map(|s| s.failed.clone());
     let result = eframe::run_native(
