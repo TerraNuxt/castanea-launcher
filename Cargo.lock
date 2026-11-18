@@ -626,6 +626,7 @@ dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
  "junction",
+ "libc",
  "semver",
  "serde",
  "serde_json",

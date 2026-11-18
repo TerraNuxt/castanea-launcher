@@ -237,6 +237,7 @@ impl App {
         app.backend_last = castanea_launcher_core::backend::BackendState::load(&app.paths).last;
         app.refresh_installed();
         app.reload_mods();
+        app.adopt_running();
         app
     }
 

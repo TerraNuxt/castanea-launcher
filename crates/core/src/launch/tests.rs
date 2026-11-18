@@ -15,10 +15,10 @@ fn args(plan: &Plan) -> Vec<&str> {
 }
 
 #[test]
-fn default_options_have_no_arguments_and_the_game_dir_as_cwd() {
+fn default_options_only_ask_for_the_start_screen_and_the_game_dir_as_cwd() {
     let plan = plan(&GameOptions::default(), &build(Path::new("/games/v1")), PathBuf::from("/data/game")).unwrap();
     assert_eq!(plan.program, Path::new("/games/v1/castanea"));
-    assert!(plan.args.is_empty());
+    assert_eq!(args(&plan), ["--menu"]);
     assert!(plan.env.is_empty());
     assert_eq!(plan.cwd, Path::new("/data/game"));
 }
@@ -35,7 +35,7 @@ fn options_give_name_extra_args_and_environment() {
     let plan = plan(&options, &build(Path::new("/g")), PathBuf::from("/i")).unwrap();
     assert_eq!(
         args(&plan),
-        ["--name", "Anna", "--gamemode", "creative", "--assist", "hunger_rate=0.5", "--biome", "deep ocean"]
+        ["--menu", "--name", "Anna", "--gamemode", "creative", "--assist", "hunger_rate=0.5", "--biome", "deep ocean"]
     );
     assert_eq!(
         plan.env,

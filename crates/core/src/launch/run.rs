@@ -2,19 +2,23 @@
 
 use std::collections::{HashSet, VecDeque};
 use std::fs;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use super::detach;
 use super::plan::Plan;
+use super::tail::Tail;
 use crate::{Error, Result};
 
 pub const LOG_DIR: &str = "logs";
 pub const CRASH_DIR: &str = "crash";
 const KEEP_LOGS: usize = 10;
+/// How much of the old output an adopted game shows.
+const ADOPT_TAIL_BYTES: u64 = 64 * 1024;
 
 /// The last lines of output, shared with the reader threads.
 #[derive(Debug, Default)]
@@ -71,77 +75,156 @@ pub fn library_package(library: &str) -> Option<&'static str> {
     TABLE.iter().find(|(prefix, _)| library.starts_with(prefix)).map(|(_, package)| *package)
 }
 
+/// The game: a child of this launcher run, or one started by an earlier run that is still going.
+enum Handle {
+    Child(Child),
+    Adopted { pid: u32, program: PathBuf },
+}
+
 pub struct Running {
-    child: Child,
+    handle: Handle,
     pub log: Arc<Mutex<LogBuffer>>,
     pub log_file: PathBuf,
     game_dir: PathBuf,
     crashes_before: HashSet<PathBuf>,
     started: Instant,
-    readers: Vec<thread::JoinHandle<()>>,
+    tail: Tail,
+}
+
+/// The command of the game: its own session or process group, stdin closed, output straight into the log file.
+fn command(plan: &Plan, out: fs::File, err: fs::File, breakaway: bool) -> Command {
+    let mut command = Command::new(&plan.program);
+    command.args(&plan.args).current_dir(&plan.cwd).stdin(Stdio::null()).stdout(out).stderr(err);
+    for (key, value) in &plan.env {
+        command.env(key, value);
+    }
+    detach::detach(&mut command, breakaway);
+    command
+}
+
+fn now_seconds() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
 }
 
 impl Running {
-    /// Starts the plan; the previous `latest.log` is kept with a time stamp.
+    /// Starts the plan; the previous `latest.log` is kept with a time stamp. The game writes the log file itself and is not
+    /// tied to this process in any way: closing the launcher leaves it running.
     pub fn start(plan: &Plan, log_limit: usize) -> Result<Self> {
         let logs = plan.cwd.join(LOG_DIR);
         fs::create_dir_all(&logs).map_err(|error| Error::io(&logs, error))?;
         let log_file = logs.join("latest.log");
         rotate(&logs, &log_file);
-        let mut file = fs::File::create(&log_file).map_err(|error| Error::io(&log_file, error))?;
+        let mut file = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_file)
+            .map_err(|error| Error::io(&log_file, error))?;
         let _ = writeln!(file, "# {}\n# in {}", plan.display(), plan.cwd.display());
-        let file = Arc::new(Mutex::new(file));
+        let from = file.metadata().map_or(0, |m| m.len());
         let crashes_before = crash_files(&plan.cwd);
-
-        let mut command = Command::new(&plan.program);
-        command
-            .args(&plan.args)
-            .current_dir(&plan.cwd)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-        for (key, value) in &plan.env {
-            command.env(key, value);
-        }
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-            command.creation_flags(CREATE_NO_WINDOW);
-        }
-        let mut child = command.spawn().map_err(|error| Error::io(&plan.program, error))?;
+        let clone = |file: &fs::File| file.try_clone().map_err(|error| Error::io(&log_file, error));
+        let spawn = |breakaway| -> Result<Child> {
+            let mut command = command(plan, clone(&file)?, clone(&file)?, breakaway);
+            command.spawn().map_err(|error| Error::io(&plan.program, error))
+        };
+        // A job object that forbids breakaway refuses the flag; the game then starts without it.
+        let child = match spawn(true) {
+            Err(_) if cfg!(windows) => spawn(false)?,
+            other => other?,
+        };
+        drop(file);
         let log = Arc::new(Mutex::new(LogBuffer { limit: log_limit, ..LogBuffer::default() }));
-        let mut readers = Vec::new();
-        if let Some(out) = child.stdout.take() {
-            readers.push(reader(out, log.clone(), file.clone()));
+        let tail = Tail::start(log_file.clone(), from, log.clone());
+        let record = detach::Record {
+            pid: child.id(),
+            program: plan.program.clone(),
+            started: now_seconds(),
+            log_file: log_file.clone(),
+            command: plan.display(),
+        };
+        record.save(&plan.cwd);
+        Ok(Self {
+            handle: Handle::Child(child),
+            log,
+            log_file,
+            game_dir: plan.cwd.clone(),
+            crashes_before,
+            started: Instant::now(),
+            tail,
+        })
+    }
+
+    /// The game of an earlier launcher run in `game_dir`, when it is still running; its recent output is shown.
+    pub fn adopt(game_dir: &Path, log_limit: usize) -> Option<(Self, String)> {
+        let record = detach::Record::load(game_dir)?;
+        if !detach::is_alive(record.pid, &record.program) {
+            detach::Record::remove(game_dir);
+            return None;
         }
-        if let Some(err) = child.stderr.take() {
-            readers.push(reader(err, log.clone(), file.clone()));
-        }
-        Ok(Self { child, log, log_file, game_dir: plan.cwd.clone(), crashes_before, started: Instant::now(), readers })
+        let log = Arc::new(Mutex::new(LogBuffer { limit: log_limit, ..LogBuffer::default() }));
+        let size = fs::metadata(&record.log_file).map_or(0, |m| m.len());
+        let tail = Tail::start(record.log_file.clone(), size.saturating_sub(ADOPT_TAIL_BYTES), log.clone());
+        let age = Duration::from_secs(now_seconds().saturating_sub(record.started));
+        let running = Self {
+            handle: Handle::Adopted { pid: record.pid, program: record.program },
+            log,
+            log_file: record.log_file,
+            game_dir: game_dir.to_path_buf(),
+            crashes_before: crash_files(game_dir),
+            started: Instant::now().checked_sub(age).unwrap_or_else(Instant::now),
+            tail,
+        };
+        Some((running, record.command))
     }
 
     pub fn pid(&self) -> u32 {
-        self.child.id()
+        match &self.handle {
+            Handle::Child(child) => child.id(),
+            Handle::Adopted { pid, .. } => *pid,
+        }
     }
 
     /// `Some` once the game has exited; it waits for the last output then.
     pub fn poll(&mut self) -> Result<Option<Outcome>> {
-        let status = self.child.try_wait().map_err(|error| Error::io(&self.game_dir, error))?;
-        Ok(status.map(|status| self.finish(status)))
+        let status = match &mut self.handle {
+            Handle::Child(child) => match child.try_wait().map_err(|error| Error::io(&self.game_dir, error))? {
+                Some(status) => Some(status),
+                None => return Ok(None),
+            },
+            Handle::Adopted { pid, program } => {
+                if detach::is_alive(*pid, program) {
+                    return Ok(None);
+                }
+                None
+            }
+        };
+        Ok(Some(self.finish(status)))
     }
 
-    /// Ends the game (kill), then reports as `poll` does.
+    /// Ends the game (kill), then reports as `poll` does. Only the stop button calls this, never closing the launcher.
     pub fn stop(&mut self) -> Result<Outcome> {
-        let _ = self.child.kill();
-        let status = self.child.wait().map_err(|error| Error::io(&self.game_dir, error))?;
+        let status = match &mut self.handle {
+            Handle::Child(child) => {
+                let _ = child.kill();
+                Some(child.wait().map_err(|error| Error::io(&self.game_dir, error))?)
+            }
+            Handle::Adopted { pid, program } => {
+                detach::kill(*pid);
+                for _ in 0..50 {
+                    if !detach::is_alive(*pid, program) {
+                        break;
+                    }
+                    thread::sleep(Duration::from_millis(100));
+                }
+                None
+            }
+        };
         Ok(self.finish(status))
     }
 
-    fn finish(&mut self, status: ExitStatus) -> Outcome {
-        for reader in self.readers.drain(..) {
-            let _ = reader.join();
-        }
+    fn finish(&mut self, status: Option<ExitStatus>) -> Outcome {
+        self.tail.finish();
+        detach::Record::remove(&self.game_dir);
         let crash_reports: Vec<PathBuf> = {
             let mut new: Vec<PathBuf> = crash_files(&self.game_dir).difference(&self.crashes_before).cloned().collect();
             new.sort();
@@ -150,39 +233,13 @@ impl Running {
         let missing_library =
             self.log.lock().ok().and_then(|log| missing_library(log.lines.iter().map(String::as_str)));
         Outcome {
-            code: status.code(),
-            crashed: !status.success() || !crash_reports.is_empty(),
+            code: status.and_then(|s| s.code()),
+            crashed: status.is_some_and(|s| !s.success()) || !crash_reports.is_empty(),
             crash_reports,
             seconds: self.started.elapsed().as_secs(),
             missing_library,
         }
     }
-}
-
-fn reader(
-    stream: impl Read + Send + 'static,
-    log: Arc<Mutex<LogBuffer>>,
-    file: Arc<Mutex<fs::File>>,
-) -> thread::JoinHandle<()> {
-    thread::spawn(move || {
-        let mut lines = BufReader::new(stream);
-        let mut raw = Vec::new();
-        loop {
-            raw.clear();
-            match lines.read_until(b'\n', &mut raw) {
-                Ok(0) | Err(_) => break,
-                Ok(_) => {
-                    let line = String::from_utf8_lossy(&raw).trim_end_matches(['\n', '\r']).to_owned();
-                    if let Ok(mut file) = file.lock() {
-                        let _ = writeln!(file, "{line}");
-                    }
-                    if let Ok(mut log) = log.lock() {
-                        log.push(line);
-                    }
-                }
-            }
-        }
-    })
 }
 
 fn crash_files(game_dir: &Path) -> HashSet<PathBuf> {

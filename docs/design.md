@@ -82,6 +82,7 @@ data/
     assets -> ../build/current/assets   a symlink (Linux) or junction (Windows), checked at each start
     mods/                  the mods; mods/.disabled/ holds disabled ones (the game skips names with a dot)
     saves/ settings.json crash/ debug/  written by the game
+    running.json           the pid of the running game, for a launcher that starts later
     logs/latest.log        the last run's output; logs/<stamp>.log for older runs (the last 10 kept)
   backend.json             what the launcher learned about the graphics backend: probe results, Vulkan starts that died, the last start
   window/                  eframe's window state (size, position)
@@ -153,7 +154,7 @@ folder links the build's assets in. The link points at `build/current`, so it st
 ## Launching
 
 - The plan is pure data built by `launch::plan` and tested: program = the build's binary, working dir = the game
-  folder, args = `[--name N] <extra args>`, env = `CASTANEA_BACKEND` (vulkan or wgpu, left out when the game decides),
+  folder, args = `--menu [--name N] <extra args>`, env = `CASTANEA_BACKEND` (vulkan or wgpu, left out when the game decides),
   `CASTANEA_WINDOW`, and the extra variables.
 - **Which backend** is decided before the start by `backend::choose`, on a worker thread: Vulkan first, but only when a probe of
   the installed game (`--probe-gpu`, cached per game version and GPU) says it works, else wgpu, else an error; a game without
@@ -161,8 +162,22 @@ folder links the build's assets in. The link points at `build/current`, so it st
   [game-launch.md](game-launch.md).
 - The launcher never writes the game's `settings.json` and never passes the relay address (`backend_url`): that stays the game's own,
   the same for everyone.
-- Output (stdout and stderr) goes to `logs/latest.log` and to the Game output page. On Windows the game starts without
-  a console window. A crash is an exit code other than 0 or a new file in `crash/`; the launcher shows the report.
+- **The start screen.** The game opens its start screen only for no arguments or `--menu`; any other argument, even
+  `--name`, starts a world directly. So the plan always begins with `--menu`, unless the extra arguments name where to go
+  (a seed first, `--world`, `--join`, `--host` or `--menu` itself). Tested in `launch/independence_tests.rs`, and `tools/check-start-screen.sh <build dir>` checks a real game build headlessly (own Xvfb): no `saves/` appears.
+- **The game is independent of the launcher.** It is started in its own session (Unix: `setsid` in a `pre_exec`) or with
+  `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP` and, when the launcher's job object allows it, `CREATE_BREAKAWAY_FROM_JOB`
+  (Windows; `CREATE_NO_WINDOW` is left out, it is ignored with `DETACHED_PROCESS`; a refused breakaway is retried without it).
+  No parent-death signal, no kill on drop. Its stdin is closed and stdout and stderr are the log file itself, not pipes: a pipe
+  whose reader is gone would end the game with a broken pipe at its next print. The launcher follows `logs/latest.log` with
+  a thread for the Game output page.
+- **Closing the launcher while the game runs** just closes the launcher; the game keeps running. `game/running.json` (pid,
+  program, start time, log file, command) is written at the start and removed when the launcher sees the game end. The next
+  launcher start reads it, checks that the pid still is that program (Linux: `/proc`, macOS: `ps`, Windows: `tasklist`) and shows
+  "running" again with the last 64 KiB of output, the running time, and Stop. An adopted game has no exit code. A file whose
+  game is gone is deleted. Only the Stop button ends a game.
+- Output (stdout and stderr) goes to `logs/latest.log` and to the Game output page. A crash is an exit code other than 0
+  or a new file in `crash/`; the launcher shows the report.
 - The game runs once at a time; while it runs, Play is Stop and shows the running time.
 
 ## Mods

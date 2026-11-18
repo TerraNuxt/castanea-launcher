@@ -30,15 +30,26 @@ impl Plan {
     }
 }
 
-/// Builds the plan for `build` with `options`, run in `game_dir`. The game opens its own menu.
+/// Options that name where to go, so the user wants no start screen: a seed first, or one of these.
+fn starts_directly(extra: &[String]) -> bool {
+    extra.first().is_some_and(|first| !first.starts_with("--"))
+        || extra.iter().any(|arg| matches!(arg.as_str(), "--menu" | "--world" | "--join" | "--host"))
+}
+
+/// Builds the plan for `build` with `options`, run in `game_dir`. The game opens its start screen: it does so only for no
+/// arguments or `--menu`, and `--name` is an argument, so `--menu` goes first unless the extra arguments name a world.
 pub fn plan(options: &GameOptions, build: &Build, game_dir: PathBuf) -> Result<Plan> {
     let mut args = Vec::new();
+    let extra = split_args(&options.extra_args)?;
+    if !starts_directly(&extra) {
+        args.push("--menu".to_owned());
+    }
     let player = options.player_name.trim();
     if !player.is_empty() {
         check_word("player name", player)?;
         args.extend(["--name".to_owned(), player.to_owned()]);
     }
-    args.extend(split_args(&options.extra_args)?);
+    args.extend(extra);
 
     let mut env = Vec::new();
     if let Some(value) = options.graphics.env_value() {

@@ -1,8 +1,10 @@
 //! Starting the game: the plan, the game folder, and the running process.
 
+pub mod detach;
 pub mod plan;
 pub mod prepare;
 pub mod run;
+pub mod tail;
 
 pub use plan::{Plan, plan};
 pub use run::{Outcome, Running, library_package, missing_library};
@@ -26,3 +28,6 @@ pub fn launch(paths: &Paths, build: &Build, options: &GameOptions, log_limit: us
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod independence_tests;

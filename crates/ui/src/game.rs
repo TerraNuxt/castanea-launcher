@@ -271,6 +271,32 @@ impl App {
         }
     }
 
+    /// Picks up a game that an earlier launcher run started and that still runs: the launcher closing never ends the game.
+    pub fn adopt_running(&mut self) {
+        let Some((running, command)) = launch::Running::adopt(&self.paths.game(), self.settings.log_lines) else {
+            return;
+        };
+        let choice = Choice {
+            graphics: self.settings.game.graphics,
+            reason: backend::Reason::NoProbe,
+            adapter: String::new(),
+            driver: String::new(),
+            version: String::new(),
+            gpu: String::new(),
+        };
+        self.session = Some(Session {
+            command,
+            running: Some(running),
+            log: Vec::new(),
+            log_total: 0,
+            outcome: None,
+            started: Instant::now(),
+            choice,
+        });
+        let text = self.tr.get("notes.game_still_running").to_owned();
+        self.info(text);
+    }
+
     pub fn stop(&mut self) {
         let Some(session) = &mut self.session else { return };
         let Some(mut running) = session.running.take() else { return };

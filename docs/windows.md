@@ -12,7 +12,7 @@ CI runs clippy, the tests and a release build on `windows-latest`.
 | The build's `assets/` in the game folder | a directory junction (no admin rights, no developer mode); Linux uses a symlink |
 | Updating the build | the swap of `build\next` and `build\current` waits until the game has ended (Windows cannot move a folder with a running program in it); a rename that a virus scanner blocks is tried again 5 times |
 | Updating the launcher | the running exe is renamed to `castanea-launcher.old.exe` and the new exe takes its name (a running exe can be renamed, not overwritten or deleted); a restart finishes it and the old file is deleted after the new launcher drew a few frames ([design.md](design.md#launcher-self-update)) |
-| Starting the game | `CREATE_NO_WINDOW`, so no console window flashes; output is still captured |
+| Starting the game | `DETACHED_PROCESS` + `CREATE_NEW_PROCESS_GROUP` (+ `CREATE_BREAKAWAY_FROM_JOB` when the job allows it): no console, no Ctrl+C shared with the launcher, not in the launcher's job; output goes to `logs\latest.log` directly; closing the launcher leaves the game running |
 | Game binary | `castanea.exe` |
 | Release | platform `windows-x86_64` of the release API; the zip holds `castanea.exe` and `assets` |
 | System language | `LANG` if set, else `HKCU\Control Panel\International\LocaleName` |
@@ -53,6 +53,16 @@ Please try these on a Windows PC and report what fails:
     overlaps; the window cannot be made smaller than 1000x640.
 14. An old launcher home with profiles (from before this version): the first start keeps the last used profile's
     saves and options, says where the other profile folders stayed, and the old `data\versions` builds are gone.
+15. The start screen: with a player name set, Play opens the game's start screen (world list), not a world. The Game output
+    first line shows `castanea.exe --menu --name <name>`.
+16. Close the launcher while the game runs (window close button, and also End task in Task Manager on the launcher): the game
+    window stays open and playable, with no console window, also after it prints (Game output keeps going in
+    `data\game\logs\latest.log`). Start the launcher again: it shows the game as running with its time and Stop, and the
+    Game output page shows the last lines. Stop ends it. Check in Task Manager's details view that the game is not a child
+    of the launcher (Process Explorer: tree view) and that Ctrl+C in a console that started the launcher does not end the game.
+17. Start the launcher from a job that kills its children on close (for example a PowerShell started by a scheduled task,
+    or a CI runner): the game must still survive the close of the launcher; if the job forbids breakaway the game then starts
+    without that flag (log line in `latest.log` is not needed) and the result of this test is worth reporting.
 
 ### Launcher self-update (needs a launcher release on a test server)
 
