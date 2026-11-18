@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
+use castanea_launcher_core::backend::{self, Choice, Verdict};
 use castanea_launcher_core::install::update::{self, Check};
 use castanea_launcher_core::install::{Build, Platform, Release, ReleaseApi, local, notes};
 use castanea_launcher_core::launch::{self, Outcome, Running};
@@ -58,6 +59,8 @@ pub struct Session {
     pub log_total: u64,
     pub outcome: Option<Outcome>,
     pub started: Instant,
+    /// The backend choice this start was made with.
+    pub choice: Choice,
 }
 
 /// `4:05` or `1:02:03`.
@@ -207,15 +210,52 @@ impl App {
 
     /// Play is possible: a build is there and is not being swapped.
     pub fn can_play(&self) -> bool {
-        self.installed.as_ref().is_some_and(Build::is_present) && !matches!(self.update, Update::Applying { .. })
+        self.installed.as_ref().is_some_and(Build::is_present)
+            && !matches!(self.update, Update::Applying { .. })
+            && !self.starting
     }
 
-    pub fn play(&mut self) {
+    /// Starts the game: first decides the graphics backend on a worker (the probe may run), then `on_backend` starts it.
+    pub fn play(&mut self, ctx: &egui::Context) {
         if self.is_running() || !self.can_play() {
             return;
         }
         let Some(build) = self.installed.clone() else { return };
-        match launch::launch(&self.paths, &build, &self.settings.game, self.settings.log_lines) {
+        self.starting = true;
+        let (paths, options) = (self.paths.clone(), self.settings.game.clone());
+        self.jobs.spawn(ctx, move || {
+            let gpu = backend::gpu::system_key();
+            Done::Backend(
+                backend::choose(&paths, &build, &options, &gpu, backend::PROBE_TIMEOUT).map_err(|e| e.to_string()),
+            )
+        });
+    }
+
+    /// `play` without the worker, for screenshots and tests that have no window to wait on.
+    pub fn play_blocking(&mut self) {
+        if self.is_running() || !self.can_play() {
+            return;
+        }
+        let Some(build) = self.installed.clone() else { return };
+        let gpu = backend::gpu::system_key();
+        let result = backend::choose(&self.paths, &build, &self.settings.game, &gpu, backend::PROBE_TIMEOUT);
+        self.on_backend(result.map_err(|e| e.to_string()));
+    }
+
+    pub fn on_backend(&mut self, result: Result<Choice, String>) {
+        self.starting = false;
+        self.backend_last = backend::BackendState::load(&self.paths).last;
+        let choice = match result {
+            Ok(choice) => choice,
+            Err(error) => {
+                let text = self.tr.fill("notes.no_graphics", &[("error", &error)]);
+                return self.error(text);
+            }
+        };
+        let Some(build) = self.installed.clone() else { return };
+        let mut options = self.settings.game.clone();
+        options.graphics = choice.graphics;
+        match launch::launch(&self.paths, &build, &options, self.settings.log_lines) {
             Ok((plan, running)) => {
                 self.session = Some(Session {
                     command: plan.display(),
@@ -224,6 +264,7 @@ impl App {
                     log_total: 0,
                     outcome: None,
                     started: Instant::now(),
+                    choice,
                 });
             }
             Err(error) => self.error(error.to_string()),
@@ -279,6 +320,13 @@ impl App {
                 let code = outcome.code.map_or("-".to_owned(), |c| c.to_string());
                 let text = self.tr.fill("notes.crashed", &[("code", &code)]);
                 self.error(text);
+                let choice = self.session.as_ref().map(|s| s.choice.clone());
+                if let Some(choice) = choice
+                    && backend::record_outcome(&self.paths, &choice, &outcome) == Verdict::VulkanDied
+                {
+                    let text = self.tr.get("notes.vulkan_died").to_owned();
+                    self.info(text);
+                }
             }
             Ok(_) => {}
             Err(error) => self.error(error),

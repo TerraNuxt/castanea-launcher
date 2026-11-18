@@ -4,7 +4,6 @@
   "nav.output": "Game output",
   "nav.settings": "Settings",
   "nav.about": "About",
-
   "common.add": "Add",
   "common.cancel": "Cancel",
   "common.open": "Open",
@@ -12,14 +11,11 @@
   "common.remove": "Remove",
   "common.save": "Save",
   "common.close": "Close",
-
   "status.offline": "Offline",
   "status.downloading": "Downloading {version} · {percent} %",
-
   "play.play": "Play",
   "play.stop": "Stop",
   "play.stop_running": "Stop the game, running for {time}",
-
   "home.version": "castanea {version}",
   "home.local_build": "Local build {version}",
   "home.not_installed": "The game is not installed yet.",
@@ -37,13 +33,11 @@
   "home.check_failed": "could not check for updates",
   "home.output": "Game output",
   "home.retry": "Try again",
-
   "notes.crashed": "The game crashed (exit code {code}). See Game output.",
   "notes.updated": "castanea {version} is installed.",
   "notes.update_failed": "The update failed, the installed game stays: {error}",
   "notes.migrated": "Profiles are gone: the launcher now has one game folder. The settings and saves of {profile} were kept.",
   "notes.migrated_left": "The folders of other profiles stay where they were: {folders}",
-
   "log.none": "The game has not been started yet.",
   "log.copy": "Copy",
   "log.open_folder": "Open log folder",
@@ -51,7 +45,6 @@
   "log.exited": "Ended normally after {time} (exit code {code})",
   "log.crashed": "Crashed after {time} (exit code {code})",
   "log.show_report": "Show report",
-
   "mods.installed": "Installed",
   "mods.browse": "Browse",
   "mods.import_zip": "Import zip…",
@@ -80,7 +73,6 @@
   "mods.kind_folder": "folder",
   "mods.remove_title": "Remove this mod?",
   "mods.remove_body": "{name} is deleted from the mods folder.",
-
   "problem.broken": "Cannot be read: {error}",
   "problem.duplicate": "Another mod has the same id; the game will refuse to start.",
   "problem.missing_dep": "Needs {id}, which is not installed.",
@@ -88,11 +80,9 @@
   "problem.cycle": "Part of a dependency cycle.",
   "problem.unknown_keys": "mod.json has keys the game refuses: {keys}",
   "problem.incompatible": "Made for game {range}, the installed game is {game}.",
-
   "compat.yes": "fits",
   "compat.no": "does not fit",
   "compat.unknown": "fit unknown",
-
   "browse.no_index": "No mod index is set up.",
   "browse.go_settings": "Add one in Settings",
   "browse.search": "Search mods",
@@ -110,7 +100,6 @@
   "browse.no_fitting_version": "No version fits the installed game.",
   "browse.versions": "Versions",
   "browse.game_range": "game {range}",
-
   "settings.general": "General",
   "settings.language": "Language",
   "settings.system_language": "System language",
@@ -118,11 +107,9 @@
   "settings.offline_hint": "No update checks and no downloads; the installed game and the cached index only.",
   "settings.game": "Game",
   "settings.player": "Player name",
-  "settings.relay": "Relay server",
-  "settings.relay_hint": "Written to the game's settings as backend_url. Empty keeps the game's own.",
-  "settings.graphics": "Graphics backend",
-  "settings.graphics_hint": "Passed as CASTANEA_BACKEND.",
-  "settings.graphics_auto": "Game setting",
+  "settings.graphics": "Graphics",
+  "settings.graphics_hint": "Auto starts with Vulkan when a quick check says it works on this PC, otherwise with wgpu.",
+  "settings.graphics_auto": "Auto (recommended)",
   "settings.window": "Window size",
   "settings.window_hint": "Such as 1280x720. Empty for the game's default.",
   "settings.extra": "Extra arguments",
@@ -151,7 +138,6 @@
   "settings.folder_config": "Settings folder",
   "settings.folder_data": "Data folder",
   "settings.folder_cache": "Cache folder",
-
   "launcher.line_up_to_date": "castanea launcher {version} · up to date",
   "launcher.line_checking": "castanea launcher {version} · checking for updates…",
   "launcher.line_downloading": "castanea launcher {version} · update {new} downloading {percent} %",
@@ -177,7 +163,6 @@
   "settings.launcher_update_hint": "Downloads a newer launcher in the background and offers a restart. Off in offline mode.",
   "settings.allow_unsigned": "Allow unsigned builds",
   "settings.allow_unsigned_hint": "Developer use only: installs game builds with a missing or wrong signature. Only debug builds of the launcher honour it; release builds ignore it. It never applies to the launcher's own updates.",
-
   "about.version": "Version",
   "about.text": "Keeps castanea at its newest release, starts it, and manages and finds mods.",
   "about.license": "MIT licence. Built with egui. Text in Inter (SIL Open Font License 1.1), icons from Phosphor (MIT), titles in the project's own copper font.",
@@ -189,5 +174,23 @@
   "about.key_activate": "Press the focused control",
   "about.key_escape": "Close a question, leave mod details",
   "about.security": "Safety",
-  "about.security_text": "Downloads use HTTPS only and are checked against a SHA-256 from the release or the index; a build that fails the check is thrown away and the installed one stays. The launcher runs no downloaded code except the game. New mods start disabled; before enabling one you see what it declares."
+  "about.security_text": "Downloads use HTTPS only and are checked against a SHA-256 from the release or the index; a build that fails the check is thrown away and the installed one stays. The launcher runs no downloaded code except the game. New mods start disabled; before enabling one you see what it declares.",
+  "home.checking_graphics": "checking graphics…",
+  "notes.no_graphics": "The game was not started: no graphics backend works here. {error}. Update the graphics driver, or pick one in Settings → Advanced → Graphics.",
+  "notes.vulkan_died": "The game stopped right after starting with Vulkan. The launcher will use wgpu for this game version from now on.",
+  "about.diagnostics": "Diagnostics",
+  "about.diag_game": "Game",
+  "about.diag_setting": "Graphics setting",
+  "about.diag_backend": "Backend at the last start",
+  "about.diag_reason": "Why",
+  "about.diag_adapter": "Graphics card",
+  "about.diag_none": "not installed",
+  "about.diag_not_started": "not started yet",
+  "about.diag_game_picks": "the game's own choice",
+  "backend.reason_vulkan_works": "Vulkan passed the check before the start",
+  "backend.reason_vulkan_failed": "Vulkan did not pass the check, wgpu is used",
+  "backend.reason_vulkan_crashed": "Vulkan stopped right after starting before, wgpu is used",
+  "backend.reason_no_probe": "this game version has no graphics check, the game chooses",
+  "backend.reason_setting": "chosen in Settings",
+  "backend.reason_environment": "CASTANEA_BACKEND is set in the extra environment"
 }

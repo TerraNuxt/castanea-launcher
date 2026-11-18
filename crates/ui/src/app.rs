@@ -122,6 +122,10 @@ pub struct App {
     pub auto_check: bool,
     pub checked: bool,
     pub session: Option<Session>,
+    /// The graphics backend is being decided for a start (the probe may run); Play waits.
+    pub starting: bool,
+    /// The last start's backend, for About.
+    pub backend_last: Option<castanea_launcher_core::backend::LastLaunch>,
     pub notes: Vec<Note>,
     pub index: Index,
     pub index_warnings: Vec<String>,
@@ -174,6 +178,8 @@ impl App {
             auto_check: true,
             checked: false,
             session: None,
+            starting: false,
+            backend_last: None,
             notes: Vec::new(),
             index: Index::default(),
             index_warnings: Vec::new(),
@@ -204,6 +210,7 @@ impl App {
             app.info(text);
         }
         app.release_url_input = app.settings.release_url.clone();
+        app.backend_last = castanea_launcher_core::backend::BackendState::load(&app.paths).last;
         app.refresh_installed();
         app.reload_mods();
         app
@@ -302,6 +309,7 @@ impl App {
                     self.index = index;
                     self.index_warnings = warnings;
                 }
+                Done::Backend(result) => self.on_backend(result),
                 Done::Checked(result) => self.on_checked(ctx, result),
                 Done::Downloaded(result) => self.on_downloaded(ctx, result),
                 Done::Applied(result) => self.on_applied(result),

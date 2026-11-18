@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::plan::split_args;
-use super::prepare::{self, link_assets, set_game_setting};
+use super::prepare::{self, link_assets};
 use super::*;
 use crate::settings::Graphics;
 
@@ -31,7 +31,6 @@ fn options_give_name_extra_args_and_environment() {
         graphics: Graphics::Wgpu,
         window: "1280x720".into(),
         env: vec![("RUST_LOG".into(), "info".into()), ("CASTANEA_BACKEND".into(), "vulkan".into())],
-        ..GameOptions::default()
     };
     let plan = plan(&options, &build(Path::new("/g")), PathBuf::from("/i")).unwrap();
     assert_eq!(
@@ -75,20 +74,18 @@ fn extra_arguments_split_like_a_shell() {
 }
 
 #[test]
-fn preparing_links_assets_and_writes_backend_url_keeping_other_settings() {
+fn preparing_links_assets_and_leaves_the_game_settings_alone() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().join("build");
     fs::create_dir_all(root.join("assets/engine")).unwrap();
     let game = dir.path().join("inst");
     fs::create_dir_all(&game).unwrap();
     fs::write(game.join("settings.json"), r#"{"fov": 80, "backend_url": "https://old"}"#).unwrap();
-    prepare::prepare(&game, &build(&root), "https://relay.example.org").unwrap();
+    prepare::prepare(&game, &build(&root)).unwrap();
     assert!(game.join("assets/engine").is_dir());
     assert!(game.join("mods").is_dir());
-    let settings: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(game.join("settings.json")).unwrap()).unwrap();
-    assert_eq!(settings["fov"], 80);
-    assert_eq!(settings["backend_url"], "https://relay.example.org");
+    let settings = fs::read_to_string(game.join("settings.json")).unwrap();
+    assert_eq!(settings, r#"{"fov": 80, "backend_url": "https://old"}"#, "byte for byte as the game left it");
 
     let other = dir.path().join("build2/assets");
     fs::create_dir_all(&other).unwrap();
@@ -99,8 +96,6 @@ fn preparing_links_assets_and_writes_backend_url_keeping_other_settings() {
     let real = dir.path().join("real");
     fs::create_dir_all(real.join("assets")).unwrap();
     assert!(link_assets(&real.join("assets"), &other).is_err(), "a real folder is never replaced");
-    fs::write(dir.path().join("bad.json"), "[1]").unwrap();
-    assert!(set_game_setting(&dir.path().join("bad.json"), "k", "v").is_err());
 }
 
 #[cfg(unix)]
@@ -183,4 +178,33 @@ fn the_log_buffer_keeps_the_last_lines() {
     }
     assert_eq!(log.lines, ["3", "4"]);
     assert_eq!(log.total, 5);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_launch_never_touches_backend_url_in_the_settings_or_the_environment() {
+    let dir = tempfile::tempdir().unwrap();
+    let build = fake_game(dir.path(), "echo \"url: $CASTANEA_BACKEND_URL $BACKEND_URL\"");
+    let paths = crate::paths::Paths::portable(dir.path());
+    let before = r#"{"fov": 80, "backend_url": "https://relay.example.org"}"#;
+    fs::create_dir_all(paths.game()).unwrap();
+    fs::write(paths.game().join("settings.json"), before).unwrap();
+    let options = GameOptions { graphics: Graphics::Wgpu, ..GameOptions::default() };
+    let (plan, mut running) = launch(&paths, &build, &options, 100).unwrap();
+    assert!(
+        plan.env.iter().all(|(k, v)| !k.to_lowercase().contains("backend_url") && !v.contains("relay")),
+        "{plan:?}"
+    );
+    assert!(plan.args.iter().all(|a| !a.contains("backend") && !a.contains("relay")), "{plan:?}");
+    while running.poll().unwrap().is_none() {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    assert_eq!(fs::read_to_string(paths.game().join("settings.json")).unwrap(), before);
+    let fresh = tempfile::tempdir().unwrap();
+    let paths = crate::paths::Paths::portable(fresh.path());
+    let (_plan, mut running) = launch(&paths, &fake_game(fresh.path(), "true"), &options, 100).unwrap();
+    while running.poll().unwrap().is_none() {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    assert!(!paths.game().join("settings.json").exists(), "no settings file is created either");
 }

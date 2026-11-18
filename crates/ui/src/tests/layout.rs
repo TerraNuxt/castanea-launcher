@@ -134,7 +134,7 @@ fn page_regions_do_not_overlap() {
         h.go(Page::About);
         let shot = shoot(&mut h);
         let groups = shot.starting("about:");
-        assert_eq!(groups.len(), 3, "{context}: {:?}", shot.names());
+        assert_eq!(groups.len(), 4, "{context}: {:?}", shot.names());
         disjoint(&context, &groups);
         all_inside_x(&context, &groups, shot.get("content"));
     }
@@ -146,7 +146,7 @@ fn the_output_page_holds_its_status_above_the_log() {
     for size in SIZES {
         let mut h = Harness::new("en");
         h.size = egui::vec2(size[0], size[1]);
-        h.app.play();
+        h.app.play_blocking();
         h.go(Page::Log);
         let shot = shoot(&mut h);
         let context = format!("{size:?}");

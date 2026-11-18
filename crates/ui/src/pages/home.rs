@@ -86,7 +86,7 @@ fn play_button(app: &mut App, ui: &mut egui::Ui) {
             let play = app.tr.get("play.play").to_owned();
             let response = Button::new(Kind::Primary, &play).large().brand().enabled(app.can_play()).show(ui);
             if response.clicked() {
-                app.play();
+                app.play(ui.ctx());
             }
             response.on_hover_text("F5")
         }
@@ -137,6 +137,7 @@ pub fn status_line(app: &App) -> (String, egui::Color32) {
         Update::Offline => Some(tr.get("home.offline").to_owned()),
         Update::Failed(_) => Some(tr.get("home.check_failed").to_owned()),
     };
+    let state = if app.starting { Some(tr.get("home.checking_graphics").to_owned()) } else { state };
     let tint = if matches!(app.update, Update::Failed(_)) { color::DANGER } else { color::TEXT_MUTED };
     let text = match (build, state) {
         (Some(build), Some(state)) => format!("{build}  ·  {state}"),

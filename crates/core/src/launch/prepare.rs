@@ -1,24 +1,16 @@
-//! Getting the game folder ready: the folder, `mods/`, the build's `assets/` linked in, `backend_url` set.
+//! Getting the game folder ready: the folder, `mods/`, the build's `assets/` linked in. The game's own `settings.json`
+//! (including its `backend_url`) is never written by the launcher.
 
 use std::fs;
 use std::path::Path;
 
-use serde_json::{Map, Value};
-
 use crate::install::Build;
-use crate::json_file;
 use crate::{Error, Result};
 
-pub const GAME_SETTINGS: &str = "settings.json";
-pub const BACKEND_KEY: &str = "backend_url";
-
-pub fn prepare(game_dir: &Path, build: &Build, backend_url: &str) -> Result<()> {
+pub fn prepare(game_dir: &Path, build: &Build) -> Result<()> {
     fs::create_dir_all(game_dir.join("mods")).map_err(|error| Error::io(game_dir, error))?;
     if !same_dir(game_dir, &build.root) {
         link_assets(&game_dir.join("assets"), &build.assets())?;
-    }
-    if !backend_url.trim().is_empty() {
-        set_game_setting(&game_dir.join(GAME_SETTINGS), BACKEND_KEY, backend_url.trim())?;
     }
     Ok(())
 }
@@ -78,22 +70,4 @@ fn create_link(target: &Path, link: &Path) -> Result<()> {
 #[cfg(windows)]
 fn create_link(target: &Path, link: &Path) -> Result<()> {
     junction::create(target, link).map_err(|error| Error::io(link, error))
-}
-
-/// Sets one key in the game's `settings.json` (a flat JSON object), keeping every other key.
-pub fn set_game_setting(file: &Path, key: &str, value: &str) -> Result<()> {
-    let mut map: Map<String, Value> = match fs::read_to_string(file) {
-        Ok(text) if !text.trim().is_empty() => match serde_json::from_str(&text) {
-            Ok(Value::Object(map)) => map,
-            _ => return Err(Error::invalid(format!("{}: not a JSON object; fix or delete it", file.display()))),
-        },
-        Ok(_) => Map::new(),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Map::new(),
-        Err(error) => return Err(Error::io(file, error)),
-    };
-    if map.get(key).and_then(Value::as_str) == Some(value) {
-        return Ok(());
-    }
-    map.insert(key.to_owned(), Value::String(value.to_owned()));
-    json_file::save(file, &Value::Object(map))
 }

@@ -16,7 +16,8 @@ CI runs clippy, the tests and a release build on `windows-latest`.
 | Game binary | `castanea.exe` |
 | Release | platform `windows-x86_64` of the release API; the zip holds `castanea.exe` and `assets` |
 | System language | `LANG` if set, else `HKCU\Control Panel\International\LocaleName` |
-| Renderer | wgpu picks DX12, then Vulkan, then GL |
+| Renderer of the launcher | wgpu picks DX12, then Vulkan, then GL |
+| Renderer of the game | the launcher probes the game (`--probe-gpu`) and passes `CASTANEA_BACKEND=vulkan` when Vulkan works, else `wgpu` (DX12) ([game-launch.md](game-launch.md)) |
 | Window frame | the system frame (snapping, shadow and resizing are Windows' own) |
 | Open folder | `explorer <folder>` |
 

@@ -54,7 +54,7 @@ fn shortcuts(app: &mut App, ctx: &egui::Context) {
         }
     }
     if ctx.input_mut(|i| i.consume_shortcut(&KeyboardShortcut::new(Modifiers::NONE, Key::F5))) {
-        app.play();
+        app.play(ctx);
     }
     if ctx.input_mut(|i| i.consume_shortcut(&KeyboardShortcut::new(Modifiers::COMMAND, Key::F))) {
         app.go(Page::Mods);

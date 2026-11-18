@@ -37,10 +37,13 @@ newest release (checked, downloaded and verified at start), starts it, and is a 
   check, updates. Works offline from the cache.
 - **Game output**: the live output, also in `logs/latest.log` of the game folder; a crash (exit code or a new report
   in `crash/`) is shown with its report.
-- **Settings**: language, offline mode; the game's player name, relay server (`backend_url`), graphics backend
-  (`CASTANEA_BACKEND=vulkan|wgpu`), window size, extra arguments and environment; mod indexes; under Advanced a local
-  build folder for people who build the game from source, the release server address, beta builds, a developer-only
-  switch for unsigned game builds (ignored by release builds), and the folders.
+- **Settings**: language, offline mode; the game's player name, window size, extra arguments and environment; mod
+  indexes; under Advanced the graphics backend (Auto, Vulkan or wgpu), a local build folder for people who build the game
+  from source, the release server address, beta builds, a developer-only switch for unsigned game builds (ignored by
+  release builds), and the folders.
+- **Graphics**: Auto checks the installed game once (`--probe-gpu`) and starts it with Vulkan only when that works here, else
+  with wgpu; a Vulkan start that dies at once is remembered. About shows the backend of the last start
+  ([contract](docs/game-launch.md)).
 - English and German (`crates/ui/lang/*.json`), a matte dark theme, keyboard shortcuts (Ctrl+1…5, F5, Ctrl+F, Tab,
   Enter, Esc), screen reader names for every control (AccessKit), the system window frame, window size and position
   remembered, from 1000x640 up.
@@ -71,11 +74,12 @@ release, for one run. `CASTANEA_RELEASE_URL=<url>` points the launcher at anothe
 
 | Path | What |
 |---|---|
-| `crates/core` | Everything without UI: folders, settings, the build and its updates, migration, launch, mods, index, downloads |
+| `crates/core` | Everything without UI: folders, settings, the build and its updates, migration, launch, the graphics backend choice ([docs/game-launch.md](docs/game-launch.md)), mods, index, downloads |
 | `crates/ui` | The window (eframe): `app.rs` state, `game.rs` updates and the running game, `shell.rs` layout, `sidebar.rs`, `pages/` one file per page, `widgets/` components, `theme.rs` tokens, `lang/` strings, `assets/fonts` |
 | `docs/` | Design, UI design, mod index format, packaging, Nix, Windows notes, screenshots, an example index |
 | `third_party/` | Licences and sources of the foreign fonts (Inter, Phosphor); the own brand font has its note beside it |
-| `tools/remote.sh` | Runs a command on the build host (`tools/remote.sh cargo test --workspace`) |
+| `tools/remote.sh` | Runs a command in this tree's task container on the build host (`tools/remote.sh cargo test --workspace`) |
+| `tools/release.sh` | Builds both releases (`all`: Linux x86_64 and Windows x86_64 zips) on the build host; `build_binary.sh`, `pack_release.sh`, `builder/Dockerfile` and `make_ico.py` are its parts ([packaging](docs/packaging.md)) |
 | `tools/winck.sh` | Windows cross-check (cargo check and clippy for a Windows target in a container) |
 | `tools/screenshots.sh` | Takes `docs/screenshots` under a private Xvfb display (`castanea-launcher --screenshots DIR`) |
 

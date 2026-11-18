@@ -118,6 +118,20 @@ impl Harness {
         self.app.go(page);
     }
 
+    #[cfg(unix)]
+    /// Presses Play and draws until the backend job is done and the game runs (or the start failed).
+    pub fn play_and_wait(&mut self) {
+        self.app.play(&self.ctx);
+        for _ in 0..500 {
+            self.frame();
+            if !self.app.starting {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        panic!("the start never finished");
+    }
+
     /// Every view the tests draw: each page, the update states of the home page, the mod browser with a selection,
     /// the confirm dialog and the open Advanced settings.
     pub fn views() -> Vec<View> {
@@ -335,7 +349,7 @@ fn play_becomes_stop_with_the_running_time_and_the_output_shows_the_game() {
     h.ctx.enable_accesskit();
     h.app.update = Update::Offline;
     h.go(Page::Home);
-    h.app.play();
+    h.play_and_wait();
     assert!(h.app.is_running(), "{:?}", errors(&h.app));
     h.draw();
     let output = h.frame();
@@ -374,6 +388,7 @@ fn keys_in_code() -> Vec<(String, String)> {
         "settings.",
         "about.",
         "launcher.",
+        "backend.",
     ];
     let mut out = Vec::new();
     let mut stack = vec![Path::new(env!("CARGO_MANIFEST_DIR")).join("src")];

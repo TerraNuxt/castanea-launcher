@@ -111,16 +111,6 @@ fn text_row(
 fn game(app: &mut App, ui: &mut egui::Ui) {
     widgets::section(ui, app.tr.get("settings.game"));
     text_row(app, ui, "settings.player", None, "", |a| &mut a.settings.game.player_name);
-    text_row(app, ui, "settings.relay", Some("settings.relay_hint"), "https://", |a| &mut a.settings.game.backend_url);
-    let hint = app.tr.get("settings.graphics_hint").to_owned();
-    setting_row(ui, app.tr.get("settings.graphics").to_owned(), Some(&hint), |ui| {
-        let mut current = Graphics::ALL.iter().position(|g| *g == app.settings.game.graphics).unwrap_or(0);
-        let choices = [app.tr.get("settings.graphics_auto"), "Vulkan", "wgpu"];
-        if widgets::segmented(ui, &mut current, &choices) {
-            app.settings.game.graphics = Graphics::ALL[current];
-            app.save_settings();
-        }
-    });
     text_row(app, ui, "settings.window", Some("settings.window_hint"), "1280x720", |a| &mut a.settings.game.window);
     text_row(app, ui, "settings.extra", Some("settings.extra_hint"), "", |a| &mut a.settings.game.extra_args);
     environment(app, ui);
@@ -215,8 +205,23 @@ fn indexes(app: &mut App, ui: &mut egui::Ui) {
     widgets::wrapped(ui, widgets::small(app.tr.get("settings.indexes_hint")));
 }
 
+/// Auto (the launcher checks Vulkan first), or one backend for good. A change forgets what the launcher learned.
+fn graphics(app: &mut App, ui: &mut egui::Ui) {
+    let hint = app.tr.get("settings.graphics_hint").to_owned();
+    setting_row(ui, app.tr.get("settings.graphics").to_owned(), Some(&hint), |ui| {
+        let mut current = Graphics::ALL.iter().position(|g| *g == app.settings.game.graphics).unwrap_or(0);
+        let choices = [app.tr.get("settings.graphics_auto"), "Vulkan", "wgpu"];
+        if widgets::segmented(ui, &mut current, &choices) {
+            app.settings.game.graphics = Graphics::ALL[current];
+            app.save_settings();
+            castanea_launcher_core::backend::forget(&app.paths);
+        }
+    });
+}
+
 fn advanced(app: &mut App, ui: &mut egui::Ui) {
     widgets::hairline(ui);
+    graphics(app, ui);
     let hint = match app.dev_folder() {
         Some(folder) => app.tr.fill("settings.dev_build_set", &[("folder", &folder.display().to_string())]),
         None => app.tr.get("settings.dev_build_hint").to_owned(),

@@ -1,0 +1,89 @@
+name: release-build
+
+# Builds the two launcher releases (Linux x86_64 and Windows x86_64) and uploads them as workflow artifacts.
+# It never signs and never publishes: signing and publishing stay on the build host (tools/publish.sh, docs/packaging.md).
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # The toolchain of the build host's image, so CI and the build host make the same code.
+  RUST_TOOLCHAIN: "1.100.0"
+
+jobs:
+  checks:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+      # With debug assertions off, as shipped: the trust override and the unsigned-builds switch must do nothing.
+      - run: "cargo test --release --locked -p castanea-launcher-core -- trust:: settings:: install::tests::signed::"
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check licenses bans sources
+
+  build:
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [linux-x86_64, windows-x86_64]
+    # Ubuntu 22.04 has glibc 2.35, so the Linux binary runs on anything newer, like the one from the build host (2.36).
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: x86_64-pc-windows-gnu
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.platform }}
+      - name: Install the Windows cross toolchain
+        if: matrix.platform == 'windows-x86_64'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends gcc-mingw-w64-x86-64-posix binutils-mingw-w64-x86-64
+          # The posix-thread variant, which Rust's std for windows-gnu needs.
+          sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+      - name: The version must be the one in Cargo.toml (and the tag's, on a tag)
+        id: version
+        run: |
+          version=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"/\1/p}' Cargo.toml)
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "the tag $GITHUB_REF_NAME is not v$version (the version in Cargo.toml)" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Build and check the executable
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: tools/build_binary.sh "$PLATFORM" out
+      - name: Pack
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          exe=out/castanea-launcher
+          if [ "$PLATFORM" = windows-x86_64 ]; then exe=out/castanea-launcher.exe; fi
+          tools/pack_release.sh "$PLATFORM" "$VERSION" "$exe" dist
+          cat dist/*.zip.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: castanea-launcher-${{ steps.version.outputs.version }}-${{ matrix.platform }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30

@@ -1,5 +1,7 @@
 //! About: name, version, what the launcher does, licence and credits, keyboard shortcuts, and the safety rules.
 
+use castanea_launcher_core::backend::Reason;
+use castanea_launcher_core::settings::Graphics;
 use eframe::egui;
 
 use crate::app::{App, open_url};
@@ -28,6 +30,10 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui) {
         mark(ui, "about:intro", top);
 
         let top = ui.cursor().top();
+        diagnostics(app, ui);
+        mark(ui, "about:diagnostics", top);
+
+        let top = ui.cursor().top();
         widgets::section(ui, app.tr.get("about.keys"));
         for (keys, text) in [
             ("Ctrl+1 … Ctrl+5", "about.key_pages"),
@@ -51,6 +57,47 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui) {
         mark(ui, "about:security", top);
         ui.add_space(space::XL);
     });
+}
+
+/// The game version, the Graphics setting, and the backend the last start used with the reason.
+fn diagnostics(app: &App, ui: &mut egui::Ui) {
+    widgets::section(ui, app.tr.get("about.diagnostics"));
+    let game = app.installed.as_ref().map_or_else(|| app.tr.get("about.diag_none").to_owned(), |b| b.version.clone());
+    let setting = match app.settings.game.graphics {
+        Graphics::Auto => app.tr.get("settings.graphics_auto").to_owned(),
+        Graphics::Vulkan => "Vulkan".to_owned(),
+        Graphics::Wgpu => "wgpu".to_owned(),
+    };
+    let last = app.backend_last.as_ref();
+    let backend = match last {
+        Some(last) if last.backend == "auto" => app.tr.get("about.diag_game_picks").to_owned(),
+        Some(last) => last.backend.replace("vulkan", "Vulkan"),
+        None => app.tr.get("about.diag_not_started").to_owned(),
+    };
+    let reason = last.map(|l| app.tr.get(reason_key(l.reason)).to_owned());
+    let adapter = last
+        .filter(|l| !l.adapter.is_empty())
+        .map(|l| if l.driver.is_empty() { l.adapter.clone() } else { format!("{} · {}", l.adapter, l.driver) });
+    let mut rows = vec![("about.diag_game", game), ("about.diag_setting", setting), ("about.diag_backend", backend)];
+    rows.extend(reason.map(|r| ("about.diag_reason", r)));
+    rows.extend(adapter.map(|a| ("about.diag_adapter", a)));
+    for (key, value) in rows {
+        setting_row(ui, app.tr.get(key), None, |ui| {
+            ui.add_space(crate::theme::layout::LABEL_NUDGE);
+            ui.label(widgets::muted(value));
+        });
+    }
+}
+
+fn reason_key(reason: Reason) -> &'static str {
+    match reason {
+        Reason::VulkanWorks => "backend.reason_vulkan_works",
+        Reason::VulkanFailed => "backend.reason_vulkan_failed",
+        Reason::VulkanCrashed => "backend.reason_vulkan_crashed",
+        Reason::NoProbe => "backend.reason_no_probe",
+        Reason::Setting => "backend.reason_setting",
+        Reason::Environment => "backend.reason_environment",
+    }
 }
 
 fn mark(ui: &egui::Ui, name: &str, top: f32) {

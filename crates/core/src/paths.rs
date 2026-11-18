@@ -62,6 +62,11 @@ impl Paths {
         self.data.join("game")
     }
 
+    /// What the launcher learned about the graphics backend (probe results, Vulkan starts that died).
+    pub fn backend_file(&self) -> PathBuf {
+        self.data.join("backend.json")
+    }
+
     pub fn mods(&self) -> PathBuf {
         self.game().join("mods")
     }

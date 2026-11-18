@@ -19,7 +19,7 @@ pub fn launch(paths: &Paths, build: &Build, options: &GameOptions, log_limit: us
     }
     let game_dir = paths.game();
     let plan = plan(options, build, game_dir.clone())?;
-    prepare::prepare(&game_dir, build, &options.backend_url)?;
+    prepare::prepare(&game_dir, build)?;
     let running = Running::start(&plan, log_limit)?;
     Ok((plan, running))
 }

@@ -50,6 +50,7 @@ crates/core   castanea-launcher-core: no UI, no window, everything testable
   migrate     moves an old home (profiles, side-by-side versions) to the one game folder and the one build, once
   install     the installed build, GameSource and the release API client, local build folders, the update (check, download, swap)
   launch      the launch plan (program, args, working dir, env) as pure data, the running game, its log and crash check
+  backend     the graphics backend choice: the game's GPU probe, its cache per game version and GPU, the Vulkan crash memory (game-launch.md)
   mods        mod.json reading, the installed mods, enable/disable, import, dependency and version checks
   index       the ModIndex trait, the index format, the static-file and HTTP clients, the cache, updates
   download    HTTPS download with size limit, SHA-256 check, progress and speed, retry with backoff, resumable (Range) downloads
@@ -82,6 +83,7 @@ data/
     mods/                  the mods; mods/.disabled/ holds disabled ones (the game skips names with a dot)
     saves/ settings.json crash/ debug/  written by the game
     logs/latest.log        the last run's output; logs/<stamp>.log for older runs (the last 10 kept)
+  backend.json             what the launcher learned about the graphics backend: probe results, Vulkan starts that died, the last start
   window/                  eframe's window state (size, position)
   launcher-update/         the launcher's own update: staged/ (unpacked new launcher), staged.json, update-pending (the rollback marker), skip.json (versions that failed to start)
 config/
@@ -137,7 +139,7 @@ folder links the build's assets in. The link points at `build/current`, so it st
 
 `migrate::run` runs at each start and does nothing on a new home. A home of the launcher with profiles is moved once:
 
-- The options of the last used profile (player name, relay `backend_url`, graphics backend, window size, extra
+- The options of the last used profile (player name, graphics backend, window size, extra
   arguments, environment) become the global ones in `launcher.json`. Its start option (a world, joining an address) is
   dropped: the game has its own menu.
 - Its game folder `data/instances/<id>` becomes `data/game` (saves, settings and mods move with it). The folders of
@@ -150,9 +152,14 @@ folder links the build's assets in. The link points at `build/current`, so it st
 ## Launching
 
 - The plan is pure data built by `launch::plan` and tested: program = the build's binary, working dir = the game
-  folder, args = `[--name N] <extra args>`, env = `CASTANEA_BACKEND` (vulkan or wgpu, or the game's own setting),
+  folder, args = `[--name N] <extra args>`, env = `CASTANEA_BACKEND` (vulkan or wgpu, left out when the game decides),
   `CASTANEA_WINDOW`, and the extra variables.
-- `backend_url` is written into the game folder's `settings.json` (the game keeps unknown keys) before the start.
+- **Which backend** is decided before the start by `backend::choose`, on a worker thread: Vulkan first, but only when a probe of
+  the installed game (`--probe-gpu`, cached per game version and GPU) says it works, else wgpu, else an error; a game without
+  the probe starts with its own `auto`; a Vulkan start that dies within seconds is remembered. Rules and the game-side contract:
+  [game-launch.md](game-launch.md).
+- The launcher never writes the game's `settings.json` and never passes the relay address (`backend_url`): that stays the game's own,
+  the same for everyone.
 - Output (stdout and stderr) goes to `logs/latest.log` and to the Game output page. On Windows the game starts without
   a console window. A crash is an exit code other than 0 or a new file in `crash/`; the launcher shows the report.
 - The game runs once at a time; while it runs, Play is Stop and shows the running time.

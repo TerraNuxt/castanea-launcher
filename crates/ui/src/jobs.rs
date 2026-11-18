@@ -4,6 +4,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};
 
+use castanea_launcher_core::backend::Choice;
 use castanea_launcher_core::download::Speed;
 use castanea_launcher_core::index::Index;
 use castanea_launcher_core::install::Build;
@@ -22,6 +23,8 @@ pub enum Done {
     Downloaded(Result<Build, String>),
     /// The downloaded build became the installed one.
     Applied(Result<Build, String>),
+    /// The graphics backend for this start is decided (the probe may have run), or why not.
+    Backend(Result<Choice, String>),
     /// The launcher update check.
     LauncherChecked(Result<selfupdate::Check, String>),
     /// A newer launcher is staged and in place (its version), or why not.

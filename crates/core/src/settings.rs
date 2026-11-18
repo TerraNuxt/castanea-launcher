@@ -40,8 +40,6 @@ impl Graphics {
 pub struct GameOptions {
     /// The player name (`--name`).
     pub player_name: String,
-    /// The relay backend, written into the game's `settings.json` as `backend_url`; empty leaves it alone.
-    pub backend_url: String,
     pub graphics: Graphics,
     /// `CASTANEA_WINDOW`, such as `1280x720`; empty for the game's default.
     pub window: String,
@@ -135,5 +133,18 @@ mod tests {
         assert!(settings.offline);
         assert_eq!(settings.log_lines, 5000);
         assert_eq!(settings.release_url, DEFAULT_RELEASE_URL, "the old `repo` key is ignored");
+    }
+
+    #[test]
+    fn a_stale_backend_url_key_is_ignored_and_dropped_at_the_next_save() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::portable(dir.path());
+        let old = r#"{"game": {"player_name": "Anna", "backend_url": "https://relay.example.org"}}"#;
+        std::fs::create_dir_all(&paths.config).unwrap();
+        std::fs::write(paths.settings_file(), old).unwrap();
+        let settings = Settings::load(&paths).unwrap();
+        assert_eq!(settings.game.player_name, "Anna");
+        settings.save(&paths).unwrap();
+        assert!(!std::fs::read_to_string(paths.settings_file()).unwrap().contains("backend_url"));
     }
 }

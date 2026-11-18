@@ -4,7 +4,6 @@
   "nav.output": "Spielausgabe",
   "nav.settings": "Einstellungen",
   "nav.about": "Info",
-
   "common.add": "Hinzufügen",
   "common.cancel": "Abbrechen",
   "common.open": "Öffnen",
@@ -12,14 +11,11 @@
   "common.remove": "Entfernen",
   "common.save": "Speichern",
   "common.close": "Schließen",
-
   "status.offline": "Offline",
   "status.downloading": "Lade {version} · {percent} %",
-
   "play.play": "Spielen",
   "play.stop": "Beenden",
   "play.stop_running": "Spiel beenden, läuft seit {time}",
-
   "home.version": "castanea {version}",
   "home.local_build": "Lokaler Build {version}",
   "home.not_installed": "Das Spiel ist noch nicht installiert.",
@@ -37,13 +33,11 @@
   "home.check_failed": "Suche nach Updates fehlgeschlagen",
   "home.output": "Spielausgabe",
   "home.retry": "Erneut versuchen",
-
   "notes.crashed": "Das Spiel ist abgestürzt (Exit-Code {code}). Siehe Spielausgabe.",
   "notes.updated": "castanea {version} ist installiert.",
   "notes.update_failed": "Das Update ist fehlgeschlagen, das installierte Spiel bleibt: {error}",
   "notes.migrated": "Profile gibt es nicht mehr: der Launcher hat jetzt einen Spielordner. Einstellungen und Spielstände von {profile} sind übernommen.",
   "notes.migrated_left": "Die Ordner anderer Profile bleiben, wo sie waren: {folders}",
-
   "log.none": "Das Spiel wurde noch nicht gestartet.",
   "log.copy": "Kopieren",
   "log.open_folder": "Log-Ordner öffnen",
@@ -51,7 +45,6 @@
   "log.exited": "Normal beendet nach {time} (Exit-Code {code})",
   "log.crashed": "Abgestürzt nach {time} (Exit-Code {code})",
   "log.show_report": "Bericht zeigen",
-
   "mods.installed": "Installiert",
   "mods.browse": "Entdecken",
   "mods.import_zip": "Zip importieren…",
@@ -80,7 +73,6 @@
   "mods.kind_folder": "Ordner",
   "mods.remove_title": "Diesen Mod entfernen?",
   "mods.remove_body": "{name} wird aus dem Mod-Ordner gelöscht.",
-
   "problem.broken": "Nicht lesbar: {error}",
   "problem.duplicate": "Ein anderer Mod hat dieselbe ID; das Spiel startet so nicht.",
   "problem.missing_dep": "Braucht {id}, das nicht installiert ist.",
@@ -88,11 +80,9 @@
   "problem.cycle": "Teil eines Abhängigkeitskreises.",
   "problem.unknown_keys": "mod.json hat Schlüssel, die das Spiel ablehnt: {keys}",
   "problem.incompatible": "Gemacht für Spiel {range}, installiert ist {game}.",
-
   "compat.yes": "passt",
   "compat.no": "passt nicht",
   "compat.unknown": "unbekannt",
-
   "browse.no_index": "Es ist kein Mod-Index eingerichtet.",
   "browse.go_settings": "In den Einstellungen hinzufügen",
   "browse.search": "Mods suchen",
@@ -110,7 +100,6 @@
   "browse.no_fitting_version": "Keine Version passt zum installierten Spiel.",
   "browse.versions": "Versionen",
   "browse.game_range": "Spiel {range}",
-
   "settings.general": "Allgemein",
   "settings.language": "Sprache",
   "settings.system_language": "Systemsprache",
@@ -118,11 +107,9 @@
   "settings.offline_hint": "Keine Update-Suche und keine Downloads; nur das installierte Spiel und der gespeicherte Index.",
   "settings.game": "Spiel",
   "settings.player": "Spielername",
-  "settings.relay": "Relay-Server",
-  "settings.relay_hint": "Wird als backend_url in die Spieleinstellungen geschrieben. Leer lässt die des Spiels.",
-  "settings.graphics": "Grafik-Backend",
-  "settings.graphics_hint": "Wird als CASTANEA_BACKEND übergeben.",
-  "settings.graphics_auto": "Spieleinstellung",
+  "settings.graphics": "Grafik",
+  "settings.graphics_hint": "Auto startet mit Vulkan, wenn ein kurzer Test zeigt, dass es auf diesem PC funktioniert, sonst mit wgpu.",
+  "settings.graphics_auto": "Auto (empfohlen)",
   "settings.window": "Fenstergröße",
   "settings.window_hint": "Etwa 1280x720. Leer für die Vorgabe des Spiels.",
   "settings.extra": "Weitere Argumente",
@@ -151,7 +138,6 @@
   "settings.folder_config": "Einstellungsordner",
   "settings.folder_data": "Datenordner",
   "settings.folder_cache": "Cache-Ordner",
-
   "launcher.line_up_to_date": "castanea launcher {version} · aktuell",
   "launcher.line_checking": "castanea launcher {version} · suche nach Updates…",
   "launcher.line_downloading": "castanea launcher {version} · Update {new} wird geladen {percent} %",
@@ -177,7 +163,6 @@
   "settings.launcher_update_hint": "Lädt einen neueren Launcher im Hintergrund und bietet einen Neustart an. Im Offline-Modus aus.",
   "settings.allow_unsigned": "Unsignierte Builds erlauben",
   "settings.allow_unsigned_hint": "Nur für Entwickler: installiert Spiel-Builds mit fehlender oder falscher Signatur. Nur Debug-Builds des Launchers beachten das, Release-Builds ignorieren es. Gilt nie für die Updates des Launchers selbst.",
-
   "about.version": "Version",
   "about.text": "Hält castanea auf der neuesten Version, startet es und verwaltet und findet Mods.",
   "about.license": "MIT-Lizenz. Gebaut mit egui. Schrift Inter (SIL Open Font License 1.1), Symbole von Phosphor (MIT), Titel in der eigenen Kupferschrift des Projekts.",
@@ -189,5 +174,23 @@
   "about.key_activate": "Das fokussierte Element drücken",
   "about.key_escape": "Eine Frage schließen, Mod-Details verlassen",
   "about.security": "Sicherheit",
-  "about.security_text": "Downloads laufen nur über HTTPS und werden gegen eine SHA-256 aus der Veröffentlichung oder dem Index geprüft; ein Build, der die Prüfung nicht besteht, wird verworfen und das installierte bleibt. Der Launcher führt keinen heruntergeladenen Code aus außer dem Spiel. Neue Mods starten deaktiviert; bevor du einen aktivierst, siehst du, was er angibt."
+  "about.security_text": "Downloads laufen nur über HTTPS und werden gegen eine SHA-256 aus der Veröffentlichung oder dem Index geprüft; ein Build, der die Prüfung nicht besteht, wird verworfen und das installierte bleibt. Der Launcher führt keinen heruntergeladenen Code aus außer dem Spiel. Neue Mods starten deaktiviert; bevor du einen aktivierst, siehst du, was er angibt.",
+  "home.checking_graphics": "Grafik wird geprüft…",
+  "notes.no_graphics": "Das Spiel wurde nicht gestartet: Hier funktioniert kein Grafik-Backend. {error}. Aktualisiere den Grafiktreiber oder wähle eines unter Einstellungen → Erweitert → Grafik.",
+  "notes.vulkan_died": "Das Spiel ist direkt nach dem Start mit Vulkan beendet worden. Der Launcher nutzt ab jetzt wgpu für diese Spielversion.",
+  "about.diagnostics": "Diagnose",
+  "about.diag_game": "Spiel",
+  "about.diag_setting": "Grafik-Einstellung",
+  "about.diag_backend": "Backend beim letzten Start",
+  "about.diag_reason": "Grund",
+  "about.diag_adapter": "Grafikkarte",
+  "about.diag_none": "nicht installiert",
+  "about.diag_not_started": "noch nicht gestartet",
+  "about.diag_game_picks": "die Wahl des Spiels",
+  "backend.reason_vulkan_works": "Vulkan hat den Test vor dem Start bestanden",
+  "backend.reason_vulkan_failed": "Vulkan hat den Test nicht bestanden, wgpu wird genutzt",
+  "backend.reason_vulkan_crashed": "Vulkan wurde zuvor direkt nach dem Start beendet, wgpu wird genutzt",
+  "backend.reason_no_probe": "diese Spielversion hat keinen Grafiktest, das Spiel wählt selbst",
+  "backend.reason_setting": "in den Einstellungen gewählt",
+  "backend.reason_environment": "CASTANEA_BACKEND steht in der zusätzlichen Umgebung"
 }

@@ -128,8 +128,6 @@ a hairline under each row.
  Game
  ------------------------------------------------------------------
  Player name                      [Anna                  ]
- Relay server                     [https://              ]     backend_url
- Graphics backend                 [ Game setting | Vulkan | wgpu ]
  Window size                      [1280x720              ]
  Extra arguments                  [                      ]
  Environment                      [NAME     ] [value    ] (x)   [Add variable]
@@ -139,6 +137,7 @@ a hairline under each row.
  /…/docs/examples/index.json                                 (🗑)
  [https://…/index.json         ] [Add] [Local file…]
  > Advanced                                       (closed by default)
+   Graphics                       [ Auto (recommended) | Vulkan | wgpu ]
    Local build folder             [Choose…] [Use releases]
    Release server                 [https://castanea.xenoo.dev] [Save]
    Include beta builds            (switch)
@@ -150,8 +149,10 @@ Opening Advanced scrolls it into view.
 
 ## About
 
-Name, version, one sentence, the repository link, the licence and font credits; Keyboard (rows of keys and what they
-do); Safety (one paragraph). Same column as Settings.
+Name, version, one sentence, the repository link, the licence and font credits; Diagnostics (the game version, the
+Graphics setting, the backend of the last start with the reason, the graphics card the probe reported: label and muted
+value rows, [game-launch.md](game-launch.md)); Keyboard (rows of keys and what they do); Safety (one paragraph). Same column
+as Settings. While the launcher checks the graphics before a start, the status line under Play says `checking graphics…`.
 
 ## The brand font
 

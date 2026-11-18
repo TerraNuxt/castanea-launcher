@@ -78,7 +78,7 @@ const STEPS: [Step; 18] = [
         setup: |app| {
             language(app, "en");
             up_to_date(app);
-            app.play();
+            app.play_blocking();
         },
     },
     Step { name: "home-running-de", wait: Wait::Running, setup: |app| language(app, "de") },
