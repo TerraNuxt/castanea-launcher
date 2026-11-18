@@ -7,3 +7,4 @@ pub mod log;
 pub mod mods;
 pub mod news_column;
 pub mod settings;
+pub mod storage;

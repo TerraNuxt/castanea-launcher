@@ -41,6 +41,12 @@ newest release (checked, downloaded and verified at start), starts it, and is a 
   indexes; under Advanced the graphics backend (Auto, Vulkan or wgpu), a local build folder for people who build the game
   from source, the release server address, beta builds, a developer-only switch for unsigned game builds (ignored by
   release builds), and the folders.
+- **Storage and reset** (Settings): every folder the launcher keeps – cache, the installed game, mods, logs, launcher settings – with its path,
+  its size (measured in the background) and its own Delete button; *Delete everything* after one question that lists all paths; the
+  game's own data (worlds, game settings) only after typing `DELETE` and never as part of a bulk action. Nothing is deleted while the
+  game runs, links are never followed out of the launcher's folders, a locked file is reported with *Try again*. On Windows
+  *Uninstall launcher* also removes the program ([design](docs/design.md#storage-and-reset), by hand:
+  [windows.md](docs/windows.md#removing-the-launcher-by-hand)).
 - **Graphics**: Auto checks the installed game once (`--probe-gpu`) and starts it with Vulkan only when that works here, else
   with wgpu; a Vulkan start that dies at once is remembered. About shows the backend of the last start
   ([contract](docs/game-launch.md)).

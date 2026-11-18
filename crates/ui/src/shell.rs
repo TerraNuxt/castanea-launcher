@@ -1,9 +1,11 @@
 //! The window's layout: sidebar, the page, keyboard shortcuts, the confirm dialog and the toasts.
 
 use castanea_launcher_core::mods::{checks, installed};
+use castanea_launcher_core::storage::Row;
 use eframe::egui::{self, Key, KeyboardShortcut, Modifiers};
 
 use crate::app::{App, Confirm, ModsView, NoteKind, Page};
+use crate::storage::Deletion;
 use crate::theme::{anim, color, layout, radius, size, space};
 use crate::widgets::{self, Button, Kind};
 use crate::{pages, probe, sidebar, theme};
@@ -82,8 +84,10 @@ pub fn megabytes(bytes: u64) -> String {
 
 fn confirm_dialog(app: &mut App, ctx: &egui::Context) {
     let Some(confirm) = &app.confirm else { return };
-    let (title, body, yes, danger) = match confirm {
-        Confirm::EnableMod { file_name } => {
+    let storage = pages::storage::dialog(app, confirm);
+    let (title, body, yes, danger) = match (&storage, confirm) {
+        (Some(d), _) => (d.title.clone(), d.intro.clone(), d.yes.clone(), !d.notice),
+        (None, Confirm::EnableMod { file_name }) => {
             let body = app
                 .mods
                 .iter()
@@ -92,13 +96,17 @@ fn confirm_dialog(app: &mut App, ctx: &egui::Context) {
                 .unwrap_or_default();
             (app.tr.get("mods.enable_title").to_owned(), body, app.tr.get("mods.enable").to_owned(), false)
         }
-        Confirm::RemoveMod { file_name } => (
+        (None, Confirm::RemoveMod { file_name }) => (
             app.tr.get("mods.remove_title").to_owned(),
             app.tr.fill("mods.remove_body", &[("name", file_name)]),
             app.tr.get("common.remove").to_owned(),
             true,
         ),
+        _ => return,
     };
+    let notice = storage.as_ref().is_some_and(|d| d.notice);
+    let mut ready = true;
+    let typed = &mut app.storage.typed;
     let mut answer = None;
     let frame = egui::Frame::new()
         .fill(color::RAISED)
@@ -111,17 +119,21 @@ fn confirm_dialog(app: &mut App, ctx: &egui::Context) {
             ui.label(widgets::strong(&title, size::TITLE));
             ui.add_space(space::M);
             widgets::wrapped(ui, widgets::muted(&body));
+            if let Some(dialog) = &storage {
+                ready = pages::storage::dialog_body(typed, &app.tr, ui, dialog);
+            }
             ui.add_space(space::XL);
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            let row = egui::vec2(ui.available_width(), layout::CONTROL);
+            ui.allocate_ui_with_layout(row, egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let kind = if danger { Kind::Danger } else { Kind::Primary };
-                if Button::new(kind, &yes).show(ui).clicked() {
+                if Button::new(kind, &yes).enabled(ready).show(ui).clicked() {
                     answer = Some(true);
                 }
-                if Button::new(Kind::Secondary, app.tr.get("common.cancel")).show(ui).clicked() {
+                if !notice && Button::new(Kind::Secondary, app.tr.get("common.cancel")).show(ui).clicked() {
                     answer = Some(false);
                 }
             });
-            if ui.input(|i| i.key_pressed(Key::Enter)) && ui.memory(|m| m.focused().is_none()) {
+            if storage.is_none() && ui.input(|i| i.key_pressed(Key::Enter)) && ui.memory(|m| m.focused().is_none()) {
                 answer = Some(true);
             }
         });
@@ -131,15 +143,25 @@ fn confirm_dialog(app: &mut App, ctx: &egui::Context) {
     match answer {
         Some(true) => {
             if let Some(confirm) = app.confirm.take() {
-                apply(app, confirm);
+                apply(app, ctx, confirm);
             }
         }
+        Some(false) if notice => std::process::exit(0),
         Some(false) => app.confirm = None,
         None => {}
     }
 }
 
-fn apply(app: &mut App, confirm: Confirm) {
+fn apply(app: &mut App, ctx: &egui::Context, confirm: Confirm) {
+    let confirm = match confirm {
+        Confirm::DeleteRow(row) => return app.start_delete(ctx, Deletion::Row(row)),
+        Confirm::DeleteGameData => return app.start_delete(ctx, Deletion::Row(Row::GameData)),
+        Confirm::DeleteEverything => return app.start_delete(ctx, Deletion::Everything),
+        #[cfg(windows)]
+        Confirm::Uninstall => return app.start_delete(ctx, Deletion::Uninstall),
+        Confirm::Goodbye => std::process::exit(0),
+        other => other,
+    };
     let mods_dir = app.mods_dir();
     let result = match confirm {
         Confirm::EnableMod { file_name } => match app.mods.iter().find(|m| m.file_name == file_name) {
@@ -157,6 +179,7 @@ fn apply(app: &mut App, confirm: Confirm) {
             Some(package) => installed::remove(package),
             None => Ok(()),
         },
+        _ => Ok(()),
     };
     if let Err(error) = result {
         app.error(error.to_string());

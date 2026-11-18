@@ -135,7 +135,7 @@ fn page_regions_do_not_overlap() {
         h.go(Page::Settings);
         let shot = shoot(&mut h);
         let groups = shot.starting("settings:");
-        assert_eq!(groups.len(), 4, "{context}: {:?}", shot.names());
+        assert_eq!(groups.len(), 5, "{context}: {:?}", shot.names());
         disjoint(&context, &groups);
         all_inside_x(&context, &groups, shot.get("content"));
 

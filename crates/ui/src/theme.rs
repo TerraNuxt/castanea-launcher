@@ -121,6 +121,8 @@ pub mod layout {
     /// The height of the Play block's area when the news sits below it.
     pub const HERO_NARROW: f32 = 280.0;
     pub const DIALOG: f32 = 440.0;
+    /// The tallest list in a question before it scrolls.
+    pub const DIALOG_LIST: f32 = 220.0;
     pub const TOAST: f32 = 360.0;
     pub const SWITCH: [f32; 2] = [32.0, 18.0];
     pub const IMAGE: f32 = 48.0;

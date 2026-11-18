@@ -20,6 +20,7 @@ CI runs clippy, the tests and a release build on `windows-latest`.
 | Renderer of the game | the launcher probes the game (`--probe-gpu`) and passes `CASTANEA_BACKEND=vulkan` when Vulkan works, else `wgpu` (DX12) ([game-launch.md](game-launch.md)) |
 | Window frame | the system frame (snapping, shadow and resizing are Windows' own) |
 | Open folder | `explorer <folder>` |
+| Storage and reset | Settings lists the launcher's data with sizes and Delete buttons; *Uninstall launcher* (Windows only) deletes the data, then the exe through a helper copy in `%TEMP%` that waits for the launcher to exit ([design.md](design.md#storage-and-reset)) |
 
 ## Not verified on a real Windows machine yet
 
@@ -89,3 +90,50 @@ need a debug-assertions build. Items 15 to 17 and 19 to 22 were run this way on 
     name and open it in a program that locks it) and start an update. Expected: the update fails cleanly (a quiet
     `could not check for updates` line, no new files, the installed exe untouched) and succeeds on the next start once the lock
     is gone. Report if the launcher is ever left without `castanea-launcher.exe`.
+
+### Storage, reset and uninstall (new, not run on Windows yet)
+
+Set up: use `CASTANEA_LAUNCHER_HOME=C:\cl-home` for items 23 to 28 so nothing touches your real data, and a copy of
+`castanea-launcher.exe` in `C:\cl-test\castanea-launcher\` (an own folder) and another in `%USERPROFILE%\Downloads` (a shared one).
+Design and rules: [design.md](design.md#storage-and-reset).
+
+23. **The list.** Settings → Storage and reset shows Cache, Game, Mods, Logs, Launcher settings and (after one run of the game) Game
+    data, each with its real path (`%LOCALAPPDATA%\castanea-launcher\…`, `%APPDATA%\castanea-launcher`), a size that appears a moment
+    after the page (the page never stalls, also with a big world) and a Delete button. **Uninstall launcher** is there; on Linux it is not.
+24. **One row.** Delete Logs and Mods: the question lists the paths, then they are gone in Explorer and the sizes read `–`. Delete Game:
+    the status line on Play says the game is not installed and nothing downloads by itself; Play or a restart installs it again.
+25. **Locked files.** Start the game, then Delete: the buttons are off and say to close the game. With the game closed, open a log
+    in an editor that locks it (or open a file from `build\current` in a program that locks it) and press
+    Delete everything: the other rows still go, the locked item stays under its row with the path and Windows' message, and *Try again*
+    finishes it once the lock is closed. Also try a read-only file in the cache (`attrib +r`): it is deleted.
+26. **Junctions.** `data\game\assets` is a junction to `build\current\assets`: Delete Game removes the junction and the build and
+    leaves nothing dangling. Make a junction inside `mods\` to a folder with a test file (`mklink /J`) and delete Mods: the junction
+    goes, the test file in the target folder is still there. Set a local build folder (Advanced) and Delete everything: that
+    folder is untouched; only the setting is gone.
+27. **Game data.** Delete on the Game data row asks for `DELETE` (typed in capitals; `delete` and `DELET` keep the button off) and then
+    removes `saves` and the game's settings. Delete everything never touches them: the worlds are still there afterwards.
+28. **Delete everything.** One question listing every path; after it the launcher says it closes, closes, and the next start is a first
+    start (language from the system, no game, no mods). The window state is not written again after the deletion.
+29. **Uninstall, own folder.** Run `C:\cl-test\castanea-launcher\castanea-launcher.exe` (own `CASTANEA_LAUNCHER_HOME`), Uninstall: the
+    question lists the rows, the program and says the folder is removed when empty. After confirming the window closes within a
+    second; within about 5 seconds the data, the exe, `LICENSE` and the folder `castanea-launcher` are gone, no `castanea-uninstall-*.exe`
+    is left in `%TEMP%` (if one is, note whether Defender held it). A file of yours put into that folder before keeps the folder.
+30. **Uninstall, shared folder.** The same from `Downloads\castanea-launcher.exe`: the question says only the program is removed and the
+    folder stays; afterwards `Downloads` and its other files are untouched and the exe is gone.
+31. **Uninstall while locked.** Hold a file in the data folder open and Uninstall: the exe is not removed, the error shows under the row,
+    and after closing the lock *Try again* and Uninstall work. Hold the exe itself open from a second process (copy it and run the
+    copy with `--version` in a loop): the helper keeps trying for 20 s, then reports nothing visible; check what is left.
+32. **Windows features.** Antivirus: note whether Defender or SmartScreen reacts to the temp copy `castanea-uninstall-<pid>.exe`.
+    Screen reader: the Delete buttons are announced as `Delete Cache` and so on, the row's size is read, the DELETE field is labelled.
+
+### Removing the launcher by hand
+
+If Uninstall fails, close the launcher and the game, then delete these (nothing else belongs to the launcher):
+
+- `%LOCALAPPDATA%\castanea-launcher` (the data, the installed game builds, the cache, the window state) and `%APPDATA%\castanea-launcher`
+  (`launcher.json`). Your worlds are in `%LOCALAPPDATA%\castanea-launcher\game\saves` (portable mode:
+  `<home>\data\game\saves`); copy them away first if you want to keep them.
+- The folder you unpacked the zip into, or just `castanea-launcher.exe`, `LICENSE` and any `castanea-launcher.old.exe`,
+  `.bad.exe`, `.new.exe` next to it.
+- A shortcut you made yourself. The launcher writes no registry keys, so there is nothing to clean there.
+- If `%TEMP%\castanea-uninstall-*.exe` is left over, delete it too.

@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use eframe::egui;
 
-use crate::app::{App, ModsView, Page};
+use crate::app::{App, Confirm, ModsView, Page};
 use crate::game::Update;
 use crate::jobs::{self, Progress};
 use crate::news::Phase;
@@ -59,7 +59,7 @@ fn up_to_date(app: &mut App) {
     jobs::set(&app.update_progress, None);
 }
 
-const STEPS: [Step; 20] = [
+const STEPS: [Step; 26] = [
     Step {
         name: "home",
         wait: Wait::Idle,
@@ -184,6 +184,15 @@ const STEPS: [Step; 20] = [
             app.reveal_advanced = true;
         },
     },
+    Step {
+        name: "settings-storage",
+        wait: Wait::Idle,
+        setup: |app| {
+            app.advanced_open = false;
+            app.reveal_storage = Some(egui::Align::Min);
+        },
+    },
+    Step { name: "settings-storage-end", wait: Wait::Idle, setup: |app| app.reveal_storage = Some(egui::Align::Max) },
     Step { name: "about", wait: Wait::Idle, setup: |app| app.go(Page::About) },
     Step {
         name: "mods-installed-de",
@@ -197,6 +206,35 @@ const STEPS: [Step; 20] = [
     Step { name: "settings-de", wait: Wait::Idle, setup: |app| app.go(Page::Settings) },
     Step { name: "output-de", wait: Wait::Idle, setup: |app| app.go(Page::Log) },
     Step { name: "about-de", wait: Wait::Idle, setup: |app| app.go(Page::About) },
+    Step {
+        name: "settings-storage-de",
+        wait: Wait::Idle,
+        setup: |app| {
+            app.go(Page::Settings);
+            app.reveal_storage = Some(egui::Align::Min);
+        },
+    },
+    Step {
+        name: "storage-everything-de",
+        wait: Wait::Idle,
+        setup: |app| app.confirm = Some(Confirm::DeleteEverything),
+    },
+    Step {
+        name: "storage-everything",
+        wait: Wait::Idle,
+        setup: |app| {
+            language(app, "en");
+            app.confirm = Some(Confirm::DeleteEverything);
+        },
+    },
+    Step {
+        name: "storage-game-data",
+        wait: Wait::Idle,
+        setup: |app| {
+            app.storage.typed = "DELE".to_owned();
+            app.confirm = Some(Confirm::DeleteGameData);
+        },
+    },
 ];
 
 pub struct Shots {

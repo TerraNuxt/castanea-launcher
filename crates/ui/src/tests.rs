@@ -6,6 +6,7 @@ mod brand;
 mod launcher;
 mod layout;
 mod news;
+mod storage;
 
 use std::fs;
 use std::path::Path;
@@ -190,6 +191,18 @@ impl Harness {
                 app.go(Page::Mods);
                 app.confirm = Some(Confirm::EnableMod { file_name: "redmoon".to_owned() });
             }),
+            ("storage-row-dialog", |app| {
+                app.go(Page::Settings);
+                app.confirm = Some(Confirm::DeleteRow(castanea_launcher_core::storage::Row::Mods));
+            }),
+            ("storage-game-data-dialog", |app| {
+                app.go(Page::Settings);
+                app.confirm = Some(Confirm::DeleteGameData);
+            }),
+            ("storage-everything-dialog", |app| {
+                app.go(Page::Settings);
+                app.confirm = Some(Confirm::DeleteEverything);
+            }),
             ("log", |app| {
                 app.confirm = None;
                 app.go(Page::Log);
@@ -255,6 +268,15 @@ fn an_idle_window_asks_for_no_repaint() {
     for (name, setup) in Harness::views() {
         setup(&mut h.app);
         h.app.confirm = None;
+        h.app.notes.clear();
+        // The sizes of the storage rows are measured on first sight; wait for those jobs.
+        for _ in 0..400 {
+            h.frame();
+            if h.app.jobs.running == 0 {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
         h.app.notes.clear();
         h.draw();
         h.draw();
@@ -413,6 +435,7 @@ fn keys_in_code() -> Vec<(String, String)> {
         "backend.",
         "news.",
         "hint.",
+        "storage.",
     ];
     let mut out = Vec::new();
     let mut stack = vec![Path::new(env!("CARGO_MANIFEST_DIR")).join("src")];

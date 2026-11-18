@@ -47,6 +47,14 @@ for id in amber redmoon; do
 done
 mkdir -p "$MODS/.disabled/wasm_hello"
 cp "$ROOT/crates/core/tests/fixtures/game-mods/wasm_hello/mod.json" "$MODS/.disabled/wasm_hello/"
+# Things to delete in Settings, Storage and reset: a cache, a big build, logs and a world.
+head -c 41000000 /dev/zero > "$GAME/assets/engine/pack.bin"
+mkdir -p "$HOME_DIR/cache/news" "$HOME_DIR/cache/downloads" "$HOME_DIR/data/game/logs" "$HOME_DIR/data/game/saves/world1"
+echo "[]" > "$HOME_DIR/cache/news/en.json"
+head -c 3600000 /dev/zero > "$HOME_DIR/cache/downloads/0f3a.part"
+head -c 64000 /dev/zero > "$HOME_DIR/data/game/logs/latest.log"
+head -c 12500000 /dev/zero > "$HOME_DIR/data/game/saves/world1/region.dat"
+echo "{}" > "$HOME_DIR/data/game/settings.json"
 cat > "$HOME_DIR/config/launcher.json" <<EOF
 { "language": "en", "offline": false, "indexes": ["$ROOT/docs/examples/index.json"],
   "game": { "player_name": "Anna", "graphics": "vulkan" } }

@@ -8,6 +8,7 @@ use eframe::egui;
 use crate::app::{App, open_or_note};
 use crate::game::Update;
 use crate::i18n::LANGUAGES;
+use crate::pages;
 use crate::theme::{layout, space};
 use crate::widgets::{self, Button, Kind, icon_button, setting_row};
 use crate::{icons, probe};
@@ -20,6 +21,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui) {
         group(ui, "settings:general", |ui| general(app, ui));
         group(ui, "settings:game", |ui| game(app, ui));
         group(ui, "settings:indexes", |ui| indexes(app, ui));
+        group(ui, "settings:storage", |ui| pages::storage::ui(app, ui));
         let mut open = app.advanced_open;
         let toggle = widgets::rows::expander(ui, &mut open, app.tr.get("settings.advanced"));
         if (toggle.clicked() && open) || std::mem::take(&mut app.reveal_advanced) {

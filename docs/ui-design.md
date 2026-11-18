@@ -191,6 +191,41 @@ a hairline under each row.
 
 Opening Advanced scrolls it into view.
 
+### Storage and reset
+
+A group between Mod indexes and Advanced. Each row is a name with a muted hint and the real path below it on the left; on the
+right the size (muted, right-aligned in a fixed 84 slot, `…` while it is measured, `–` when nothing is there) and a
+**destructive** button (hairline outline in DANGER_FILL, DANGER text). The buttons of all rows end at the same right edge. Game data
+is the last row and only exists when the game folder does. The rows are not filled buttons: the filled danger button is kept for
+the confirmation. Pictures: [settings-storage.png](screenshots/settings-storage.png),
+[settings-storage-end.png](screenshots/settings-storage-end.png), [German](screenshots/settings-storage-de.png).
+
+```
+ Storage and reset
+ ------------------------------------------------------------------
+ Everything the launcher keeps on this computer. Deleting cannot be undone.
+ Cache                                              3.4 MB  [Delete]
+ News, downloads, mod lists and graphics checks …
+ /…/cache
+ ------------------------------------------------------------------
+ Game / Mods / Logs / Launcher settings             (the same)
+ Game data (worlds, game settings)                 11.9 MB  [Delete]
+ Your worlds and the game's own settings. Only deleted after you type DELETE.
+ ------------------------------------------------------------------
+ Delete everything                           [Delete everything]
+ Uninstall launcher                                 [Uninstall]    (Windows only)
+```
+
+- A failed item is listed under its row in DANGER small text (`Could not delete <path>: <system message>`) with a secondary
+  *Try again* button; the toast says how many items stayed.
+- While the game runs, an update downloads or news load, a WARN line under the intro says why every button is off.
+- Every Delete opens the confirm dialog with its paths in a list (scrolls after 220), the filled danger button last and Cancel next to
+  it; Enter does not confirm these dialogs. Game data adds `Type DELETE to confirm` with a text field (focused when nothing else is),
+  and the button stays off until the word matches exactly. Delete everything lists the five rows and says the game's data stays.
+  The last dialog (`Everything is deleted`) has only Close and the launcher exits.
+  [storage-everything.png](screenshots/storage-everything.png), [storage-game-data.png](screenshots/storage-game-data.png).
+
+
 ## About
 
 Name, version, one sentence, the repository link, the licence and font credits; Diagnostics (the game version, the
@@ -246,7 +281,8 @@ How it is drawn (`bmfont.rs`, `bmfont/atlas.rs`, `bmfont/paint.rs`):
 |---|---|
 | primary button | ACCENT fill, white semibold text, radius 5, 32 high (Play: 240 x 48; its brand-font label sits on a dark plate with an ACCENT outline); hover and press darken in 120 ms. Once per view at most |
 | secondary button | no fill, 1 px BORDER_STRONG outline, TEXT; HOVER and PRESSED fills |
-| danger button | DANGER_FILL, white text; only in the remove question |
+| danger button | DANGER_FILL, white text; only in the remove and the storage questions |
+| destructive button | no fill, 1 px DANGER_FILL outline, DANGER text; a delete in a settings row (Storage and reset) |
 | quiet link | muted text, TEXT under the pointer; Game output, Try again, Show report |
 | icon button | 32 square, a line icon, no fill until hovered; the tooltip is its name for screen readers |
 | sidebar item | icon and label, 32 high, RAISED when selected |
@@ -278,7 +314,7 @@ Colours (`theme::color`):
 | `ACCENT_HOVER` / `ACCENT_PRESSED` | `#96582b` / `#885027` | the primary button under the pointer |
 | `ON_ACCENT` | `#ffffff` | text on the accent and on DANGER_FILL |
 | `DANGER` | `#e0786c` | error and crash text |
-| `DANGER_FILL` | `#8f3a32` | the remove button in its question |
+| `DANGER_FILL` | `#8f3a32` | the filled button in a delete question, the outline of the destructive button |
 | `WARN` | `#d6ae5e` | `contains code`, warnings in the log |
 
 All text colours meet WCAG AA (4.5:1) on BASE, BG, RAISED and HOVER, white meets it on the accent fills, and the

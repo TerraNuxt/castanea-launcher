@@ -225,6 +225,63 @@ game's update flow above is separate and unchanged.
   automatic updates off, could not check (English and German). The home page only gets a quiet *Restart to finish the update*
   link next to What's new. Restart is refused while the game runs.
 
+## Storage and reset
+
+Settings → Storage and reset lists everything the launcher keeps on the machine, each row with its name, the real path, its
+size and its own Delete button (`crates/core/src/storage.rs`, the page in `crates/ui/src/pages/storage.rs`).
+
+| Row | What it holds (paths below the three folders above) | Deleted by Delete everything |
+|---|---|---|
+| Cache | everything in `cache/` (index, images, news, downloads and `.part` files), `data/backend.json` (probe results and the crash memory of Vulkan starts), `data/launcher-update/` (the staged launcher, the update marker, the skip list) | yes |
+| Game | `data/build/` (`current`, and `next` or `previous` during an update) and the link `data/game/assets` | yes |
+| Mods | `data/game/mods/` (enabled and `.disabled`) | yes |
+| Logs | `data/game/logs/` (`latest.log` and the older stamped ones) | yes |
+| Launcher settings | everything in `config/` (`launcher.json`, a leftover `github-token`, old `profiles.json`) and `data/window/` (the window state) | yes |
+| Game data (worlds, game settings) | what the game wrote in `data/game/` itself: `saves/`, `settings.json`, `crash/`, `debug/`. Listed only when the game folder exists | **never** (typed `DELETE`) |
+
+The launcher makes nothing else: no temp folders (an archive unpacks to a sibling `.unpacking` folder that a failure removes),
+no registry entries, no Start menu or desktop shortcuts. The Windows zip is two files (`castanea-launcher.exe`, `LICENSE`); updates
+leave `castanea-launcher.old.exe`, `.bad.exe` and `.new.exe` next to the exe for a few seconds, which only the uninstall removes.
+The game itself keeps nothing outside `data/game/`.
+
+Rules, enforced in the core and tested with temp folders:
+
+- A path is deleted only when its parent resolves (symlinks followed there) to a strict child of the config, data or cache folder;
+  `..`, the folders themselves and anything else are refused. A folder you added by path (a local build folder, `--game-dir`) is never
+  a target; Delete everything removes only the reference (it is a setting) and refuses a target that holds or lies inside it.
+- Links are removed, never followed: a symlink or junction in `mods/` or `build/` that points out of the launcher's folders loses
+  only the link. The same walk measures sizes, and a link counts as zero.
+- Nothing is deleted while the game runs, while a download or update is in progress, or while news are loading; the buttons say why.
+- A file that cannot be removed (on Windows: open in another program, a virus scanner) is reported with its path and the system's
+  message under its row, with *Try again*; the other items and rows still go. A read-only file loses the flag and is tried once more.
+- Sizes are measured on one thread per row after the page is first shown (`…` until the answer arrives), so the page never waits for
+  the disk. A row with nothing on disk shows `–` and has no active Delete.
+- Every Delete asks first, listing the paths. Game data also asks for the word `DELETE` typed exactly (spaces around it are ignored);
+  it is not part of Delete everything, not even as an option.
+- After Delete everything the launcher says so and closes (its settings are gone, and anything it kept saving would bring them back);
+  the next start is a first start. Deleting only Launcher settings resets the running launcher to the defaults; deleting only Game
+  leaves it without a game and without an automatic download until you press Play or check again.
+
+### Uninstall (Windows only)
+
+*Uninstall launcher* (`cfg(windows)`, absent on Linux and macOS) asks once, listing what goes, then: deletes the data rows as
+Delete everything does (a failure stops it, with the per-row errors and *Try again*), starts a copy of the launcher from the temp folder
+as `castanea-uninstall-<pid>.exe --finish-uninstall <exe> <pid>`, and exits without saving. The helper waits for that pid to end
+(`tasklist`), sweeps the data again (the window state may have been written on exit), removes the shortcuts, `.old`/`.bad`/`.new`
+files, the shipped `LICENSE`, and the exe (retried for 20 s: a virus scanner may hold it), then the install folder if it is empty, and
+finally deletes itself through a short `cmd /c` (`MoveFileExW(… DELAY_UNTIL_REBOOT)` if that cannot start; that call needs admin
+rights and is only a fallback, a copy left in `%TEMP%` is harmless).
+The plan is a pure function (`storage::uninstall_plan`) so it is tested everywhere:
+
+- The exe's folder is **owned** when its name starts with `castanea-launcher` and it is not one of the shared folders (user folder,
+  Downloads, Desktop, Documents, Program Files, `%TEMP%`, `%APPDATA%`, `%LOCALAPPDATA%`): then the exe, its leftovers and `LICENSE` go, and
+  the folder when it is empty after that (a file of yours in it keeps it). Otherwise only the exe and its leftovers are removed, the folder
+  stays, and the question says so.
+- Shortcuts: `castanea-launcher.lnk`, `Castanea Launcher.lnk` or `Castanea.lnk` in the per-user Start menu `Programs` folder or on
+  the desktop, when they exist (the launcher makes none; these are the names a person gives a hand-made one). Registry: none, the launcher
+  writes no keys (it only reads `HKCU\Control Panel\International`).
+- Worlds and game settings stay, as in Delete everything.
+
 ## Security model
 
 - Downloads use HTTPS only. Plain `http://` is refused, except to `127.0.0.1` and `localhost` when a test asks for it.

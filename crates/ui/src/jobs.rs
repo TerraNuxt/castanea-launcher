@@ -10,7 +10,10 @@ use castanea_launcher_core::index::Index;
 use castanea_launcher_core::install::Build;
 use castanea_launcher_core::install::update::Check;
 use castanea_launcher_core::selfupdate;
+use castanea_launcher_core::storage::{Failure, Report, Row};
 use eframe::egui;
+
+use crate::storage::{Deletion, RowInfo};
 
 pub enum Done {
     Index {
@@ -41,6 +44,16 @@ pub enum Done {
     News {
         lang: String,
         result: Result<Vec<castanea_launcher_core::news::Item>, String>,
+    },
+    /// One storage row measured.
+    StorageSize {
+        row: Row,
+        info: RowInfo,
+    },
+    /// A deletion ended: what was asked, and the report with each failure assigned to its row.
+    StorageDeleted {
+        what: Deletion,
+        result: Result<(Report, Vec<(Row, Failure)>), String>,
     },
 }
 

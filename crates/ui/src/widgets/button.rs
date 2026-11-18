@@ -1,5 +1,6 @@
-//! Buttons: primary (the accent, used once per view), secondary (hairline outline), danger (only in dialogs), quiet
-//! (a text link), and square icon buttons. Hover and press fade in 120 ms; a focus ring for the keyboard.
+//! Buttons: primary (the accent, used once per view), secondary (hairline outline), danger (only in dialogs), destructive
+//! (a muted red outline for a delete in a row), quiet (a text link), and square icon buttons. Hover and press fade
+//! in 120 ms; a focus ring for the keyboard.
 
 use eframe::egui::{self, Color32, Response, Role, Sense, StrokeKind, WidgetInfo};
 
@@ -11,6 +12,8 @@ pub enum Kind {
     Primary,
     Secondary,
     Danger,
+    /// A hairline outline with muted red text: a delete in a settings row, the filled Danger is for the dialog.
+    Destructive,
     Quiet,
 }
 
@@ -164,7 +167,7 @@ impl<'a> Button<'a> {
 
     fn colors(&self, hover: f32, press: f32) -> (Color32, Option<Color32>, Color32) {
         if !self.enabled {
-            let stroke = matches!(self.kind, Kind::Secondary).then_some(color::BORDER);
+            let stroke = matches!(self.kind, Kind::Secondary | Kind::Destructive).then_some(color::BORDER);
             let fill = if self.kind == Kind::Quiet { Color32::TRANSPARENT } else { color::RAISED };
             return (fill, stroke, color::TEXT_DISABLED);
         }
@@ -174,6 +177,9 @@ impl<'a> Button<'a> {
         match self.kind {
             Kind::Primary => (step(color::ACCENT, color::ACCENT_HOVER, color::ACCENT_PRESSED), None, color::ON_ACCENT),
             Kind::Danger => (color::DANGER_FILL, None, color::ON_ACCENT),
+            Kind::Destructive => {
+                (step(Color32::TRANSPARENT, color::HOVER, color::PRESSED), Some(color::DANGER_FILL), color::DANGER)
+            }
             Kind::Secondary => {
                 (step(Color32::TRANSPARENT, color::HOVER, color::PRESSED), Some(color::BORDER_STRONG), color::TEXT)
             }

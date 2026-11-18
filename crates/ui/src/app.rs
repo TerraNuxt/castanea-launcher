@@ -22,6 +22,7 @@ use crate::icons;
 use crate::jobs::{self, Done, Jobs, Slot};
 use crate::launcher::LauncherUpdate;
 use crate::news::NewsState;
+use crate::storage::StorageState;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Page {
@@ -67,8 +68,22 @@ pub enum ModsView {
 
 /// A question the user must answer before something happens.
 pub enum Confirm {
-    EnableMod { file_name: String },
-    RemoveMod { file_name: String },
+    EnableMod {
+        file_name: String,
+    },
+    RemoveMod {
+        file_name: String,
+    },
+    /// Delete one row of the storage list; the game data row has its own question.
+    DeleteRow(castanea_launcher_core::storage::Row),
+    /// Worlds and game settings: asks for the typed word.
+    DeleteGameData,
+    DeleteEverything,
+    /// Windows: delete everything, then the launcher program.
+    #[cfg(windows)]
+    Uninstall,
+    /// Everything is deleted; the launcher closes.
+    Goodbye,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -146,8 +161,11 @@ pub struct App {
     pub advanced_open: bool,
     /// Scrolls the open Advanced section into view once.
     pub reveal_advanced: bool,
+    /// Scrolls the Storage and reset section into view once (screenshots).
+    pub reveal_storage: Option<egui::Align>,
     pub focus_search: bool,
     pub news: NewsState,
+    pub storage: StorageState,
 }
 
 impl App {
@@ -197,8 +215,10 @@ impl App {
             new_index: String::new(),
             advanced_open: false,
             reveal_advanced: false,
+            reveal_storage: None,
             focus_search: false,
             news: NewsState::default(),
+            storage: StorageState::default(),
         };
         app.load_news_cache();
         for error in errors {
@@ -331,6 +351,8 @@ impl App {
                     self.reload_mods();
                 }
                 Done::News { lang, result } => self.on_news(lang, result),
+                Done::StorageSize { row, info } => self.on_storage_info(row, info),
+                Done::StorageDeleted { what, result } => self.on_storage_deleted(ctx, what, result),
                 Done::Image { url, result } => {
                     let state = match result {
                         Ok(bytes) => ImageState::Ready(egui::load::Bytes::from(bytes)),

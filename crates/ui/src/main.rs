@@ -15,6 +15,7 @@ mod scene;
 mod screenshots;
 mod shell;
 mod sidebar;
+mod storage;
 mod theme;
 mod widgets;
 
@@ -31,6 +32,7 @@ use eframe::egui;
 const USAGE: &str = "usage: castanea-launcher [--game-dir DIR] [--screenshots DIR] [--version]
   --game-dir DIR      run the game build in DIR in place (a checkout or a build folder) instead of the newest release
   --screenshots DIR   draw each page once, save PNGs to DIR, then quit
+  --finish-uninstall EXE PID   (Windows, used by Uninstall) waits for PID, then removes the launcher at EXE
 Environment: CASTANEA_LAUNCHER_HOME puts config, data and cache below one folder (portable mode);
 CASTANEA_GAME_DIR is the same as --game-dir.";
 
@@ -56,6 +58,16 @@ impl eframe::App for Launcher {
     }
 }
 
+/// Windows, the helper copy of an uninstall: waits for the launcher to exit, then removes what is left of it.
+#[cfg(windows)]
+fn finish_uninstall(exe: Option<String>, pid: Option<String>) -> std::process::ExitCode {
+    let (Some(exe), Some(pid)) = (exe, pid.and_then(|p| p.parse::<u32>().ok())) else {
+        return std::process::ExitCode::from(2);
+    };
+    let report = castanea_launcher_core::storage::finish_uninstall(std::path::Path::new(&exe), pid);
+    if report.is_clean() { std::process::ExitCode::SUCCESS } else { std::process::ExitCode::FAILURE }
+}
+
 fn main() -> std::process::ExitCode {
     let mut args = std::env::args().skip(1);
     let mut shots_dir: Option<PathBuf> = None;
@@ -64,6 +76,8 @@ fn main() -> std::process::ExitCode {
         match arg.as_str() {
             "--screenshots" => shots_dir = args.next().map(PathBuf::from),
             "--game-dir" => game_dir = args.next().map(PathBuf::from),
+            #[cfg(windows)]
+            "--finish-uninstall" => return finish_uninstall(args.next(), args.next()),
             "--version" => {
                 println!("castanea-launcher {}", env!("CARGO_PKG_VERSION"));
                 return std::process::ExitCode::SUCCESS;
