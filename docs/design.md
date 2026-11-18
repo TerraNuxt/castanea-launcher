@@ -171,8 +171,18 @@ folder links the build's assets in. The link points at `build/current`, so it st
   `--name`, starts a world directly. So the plan always begins with `--menu`, unless the extra arguments name where to go
   (a seed first, `--world`, `--join`, `--host` or `--menu` itself). Tested in `launch/independence_tests.rs`, and `tools/check-start-screen.sh <build dir>` checks a real game build headlessly (own Xvfb): no `saves/` appears.
 - **The game is independent of the launcher.** It is started in its own session (Unix: `setsid` in a `pre_exec`) or with
-  `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP` and, when the launcher's job object allows it, `CREATE_BREAKAWAY_FROM_JOB`
-  (Windows; `CREATE_NO_WINDOW` is left out, it is ignored with `DETACHED_PROCESS`; a refused breakaway is retried without it).
+  `CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP` and, when the launcher's job object allows it, `CREATE_BREAKAWAY_FROM_JOB`
+  (Windows; a refused breakaway is retried without it). `CREATE_NO_WINDOW`, not `DETACHED_PROCESS` (the two cannot be combined):
+  a process without any console makes every console program it starts open a console window of its own, and the game starts
+  its own exe again (start screen to world) and `cmd /C ver` (`--diagnostics`). The game exe is a GUI program since the build that
+  follows 0.1.0-devrun.3, so it also has no console and no `conhost.exe`; with an older console build `CREATE_NO_WINDOW` still keeps the
+  console hidden.
+- **When the game starts** (Settings → Game, `launcher.json` key `on_game_start`): `minimise` (default), `close` or `keep_open`. The
+  game is the same in all three (detached, `running.json`, the log file). Once the game has stayed up for 2 seconds (`game::START_CONFIRM`;
+  one that dies at once leaves the launcher in view with its output) the window is minimised, closed, or left alone. A minimised window is
+  brought back and focused when the game ends, and the Game output page then shows how it ended; closing and starting the launcher again
+  shows a running game from `running.json`. The same on Linux (no terminal is involved on either system). Stop, and a game of an
+  earlier launcher run, never minimise.
   No parent-death signal, no kill on drop. Its stdin is closed and stdout and stderr are the log file itself, not pipes: a pipe
   whose reader is gone would end the game with a broken pipe at its next print. The launcher follows `logs/latest.log` with
   a thread for the Game output page.

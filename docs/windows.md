@@ -12,7 +12,7 @@ CI runs clippy, the tests and a release build on `windows-latest`.
 | The build's `assets/` in the game folder | a directory junction (no admin rights, no developer mode); Linux uses a symlink |
 | Updating the build | the swap of `build\next` and `build\current` waits until the game has ended (Windows cannot move a folder with a running program in it); a rename or delete that a virus scanner blocks is tried again 5 times, quietly; `build\previous` still locked afterwards is removed at the next start. Only `build\current` is left after an update ([design.md](design.md#the-game-build)) |
 | Updating the launcher | the running exe is renamed to `castanea-launcher.old.exe` and the new exe takes its name (a running exe can be renamed, not overwritten or deleted); a restart finishes it and the old file is deleted after the new launcher drew a few frames ([design.md](design.md#launcher-self-update)) |
-| Starting the game | `DETACHED_PROCESS` + `CREATE_NEW_PROCESS_GROUP` (+ `CREATE_BREAKAWAY_FROM_JOB` when the job allows it): no console, no Ctrl+C shared with the launcher, not in the launcher's job; output goes to `logs\latest.log` directly; closing the launcher leaves the game running |
+| Starting the game | `CREATE_NO_WINDOW` + `CREATE_NEW_PROCESS_GROUP` (+ `CREATE_BREAKAWAY_FROM_JOB` when the job allows it): no console window (also none for a console child of the game), no Ctrl+C shared with the launcher, not in the launcher's job; output goes to `logs\latest.log` directly; closing the launcher leaves the game running. After the start the window follows *When the game starts* (Minimise, Close, Keep open) |
 | Game binary | `castanea.exe` |
 | Release | platform `windows-x86_64` of the release API; the zip holds `castanea.exe` and `assets` |
 | System language | `LANG` if set, else `HKCU\Control Panel\International\LocaleName` |
@@ -64,6 +64,18 @@ Please try these on a Windows PC and report what fails:
 17. Start the launcher from a job that kills its children on close (for example a PowerShell started by a scheduled task,
     or a CI runner): the game must still survive the close of the launcher; if the job forbids breakaway the game then starts
     without that flag (log line in `latest.log` is not needed) and the result of this test is worth reporting.
+
+18. **No console, ever.** Press Play, open a world from the game's start screen (the game starts itself again for that), start a
+    multiplayer join, and run `castanea.exe --diagnostics` through the launcher's *Extra arguments*: no black console window shows at any
+    point, not even for a moment, and Task Manager's details view lists no `cmd.exe` or `conhost.exe` under `castanea.exe`. Checked on
+    2026-11-18 on a Windows 11 PC with the launcher's spawn code and a GUI-subsystem game exe: with the old flags and the old
+    console exe, `--diagnostics` (the game runs `cmd /C ver`) showed `cmd.exe` and `conhost.exe` under the game and a Windows Terminal window
+    appeared; with `CREATE_NO_WINDOW` and the GUI exe there was no `cmd.exe`, no `conhost.exe` and no new window except the game's own. The same
+    check by hand: `Get-CimInstance Win32_Process` for the parent chain and `EnumWindows` for the visible windows.
+19. **When the game starts.** Settings → Game → *When the game starts*: *Minimise* (the default): after Play the launcher goes to the taskbar
+    about 2 seconds after the game is up, and comes back focused, with the exit status on the Game output page, when the game ends (also after
+    a crash). *Close the launcher*: it closes, the game stays; start the launcher again: it shows the running game and its log. *Keep open*:
+    nothing changes. A game that dies at once keeps the launcher in view.
 
 ### Launcher self-update (needs a launcher release on a test server)
 

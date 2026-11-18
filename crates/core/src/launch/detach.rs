@@ -11,14 +11,15 @@ use crate::json_file;
 
 pub const RUNNING_FILE: &str = "running.json";
 
-pub const DETACHED_PROCESS: u32 = 0x0000_0008;
+pub const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 pub const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
 pub const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x0100_0000;
 
-/// The Windows creation flags of the game: no console and no Ctrl+C or Ctrl+Break shared with the launcher, and out of the
-/// launcher's job object when that allows it. `CREATE_NO_WINDOW` is left out on purpose: with `DETACHED_PROCESS` it is ignored.
+/// The Windows creation flags of the game: no console window (not even for a console program or for a console child the game
+/// starts: with `DETACHED_PROCESS` such a child opened its own window), no Ctrl+C or Ctrl+Break shared with the launcher, and out of the
+/// launcher's job object when that allows it. `CREATE_NO_WINDOW` and `DETACHED_PROCESS` cannot be combined.
 pub fn windows_creation_flags(breakaway: bool) -> u32 {
-    let flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP;
+    let flags = CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP;
     if breakaway { flags | CREATE_BREAKAWAY_FROM_JOB } else { flags }
 }
 

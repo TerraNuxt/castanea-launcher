@@ -1,17 +1,18 @@
 //! The game does not depend on the launcher: closing the launcher side leaves it running, and a new start finds it again.
 
-use super::detach::{self, CREATE_BREAKAWAY_FROM_JOB, CREATE_NEW_PROCESS_GROUP, DETACHED_PROCESS};
+use super::detach::{self, CREATE_BREAKAWAY_FROM_JOB, CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW};
 use super::*;
 use crate::settings::GameOptions;
 
 #[test]
-fn windows_flags_detach_the_game_and_skip_create_no_window() {
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+fn windows_flags_hide_the_console_and_detach_the_game() {
+    const DETACHED_PROCESS: u32 = 0x0000_0008;
     let with = detach::windows_creation_flags(true);
     let without = detach::windows_creation_flags(false);
-    assert_eq!(with, DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB);
-    assert_eq!(without, DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
-    assert_eq!(with & CREATE_NO_WINDOW, 0, "CREATE_NO_WINDOW is ignored with DETACHED_PROCESS");
+    assert_eq!(with, CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB);
+    assert_eq!(without, CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP);
+    assert_eq!(with & DETACHED_PROCESS, 0, "DETACHED_PROCESS cannot be combined with CREATE_NO_WINDOW");
+    assert_eq!(CREATE_NO_WINDOW, 0x0800_0000);
 }
 
 #[test]
@@ -136,5 +137,21 @@ mod unix {
         assert!(Running::adopt(&game_dir, 10).is_none(), "the pid belongs to another program");
         assert!(!detach::Record::path(&game_dir).exists(), "the stale file is removed");
         assert!(Running::adopt(&game_dir, 10).is_none(), "no file, no game");
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn a_detached_windows_child_really_starts_and_ends_with_its_own_status() {
+    for breakaway in [false, true] {
+        let mut command = std::process::Command::new("cmd.exe");
+        command.args(["/c", "exit 7"]);
+        detach::detach(&mut command, breakaway);
+        // A job that forbids breakaway refuses the flag, as `Running::start` expects.
+        let Ok(mut child) = command.spawn() else {
+            assert!(breakaway, "no breakaway must always start");
+            continue;
+        };
+        assert_eq!(child.wait().unwrap().code(), Some(7));
     }
 }

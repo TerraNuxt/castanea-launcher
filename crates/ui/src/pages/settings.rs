@@ -2,7 +2,7 @@
 //! default: a local build folder for people who build the game, the release server and beta builds, log length, the launcher's folders).
 
 use castanea_launcher_core::install::{Platform, ReleaseApi};
-use castanea_launcher_core::settings::{DEFAULT_RELEASE_URL, Graphics};
+use castanea_launcher_core::settings::{DEFAULT_RELEASE_URL, Graphics, OnGameStart};
 use eframe::egui;
 
 use crate::app::{App, open_or_note};
@@ -115,12 +115,36 @@ fn game(app: &mut App, ui: &mut egui::Ui) {
     text_row(app, ui, "settings.player", None, "", |a| &mut a.settings.game.player_name);
     text_row(app, ui, "settings.window", Some("settings.window_hint"), "1280x720", |a| &mut a.settings.game.window);
     text_row(app, ui, "settings.extra", Some("settings.extra_hint"), "", |a| &mut a.settings.game.extra_args);
+    on_game_start(app, ui);
     environment(app, ui);
     let folder = app.paths.game();
     let path = folder.display().to_string();
     setting_row(ui, app.tr.get("settings.game_folder").to_owned(), Some(&path), |ui| {
         if Button::new(Kind::Secondary, app.tr.get("common.open")).show(ui).clicked() {
             open_or_note(app, &folder);
+        }
+    });
+}
+
+/// What the launcher window does once the game runs: Minimise (default), Close or Keep open.
+fn on_game_start(app: &mut App, ui: &mut egui::Ui) {
+    let hint = app.tr.get("settings.on_start_hint").to_owned();
+    setting_row(ui, app.tr.get("settings.on_start").to_owned(), Some(&hint), |ui| {
+        let mut choice = app.settings.on_game_start;
+        let key = |c: OnGameStart| match c {
+            OnGameStart::Minimise => "settings.on_start_minimise",
+            OnGameStart::Close => "settings.on_start_close",
+            OnGameStart::KeepOpen => "settings.on_start_keep",
+        };
+        let shown = app.tr.get(key(choice)).to_owned();
+        egui::ComboBox::from_id_salt("on_game_start").width(layout::FIELD).selected_text(shown).show_ui(ui, |ui| {
+            for option in OnGameStart::ALL {
+                ui.selectable_value(&mut choice, option, app.tr.get(key(option)));
+            }
+        });
+        if choice != app.settings.on_game_start {
+            app.settings.on_game_start = choice;
+            app.save_settings();
         }
     });
 }

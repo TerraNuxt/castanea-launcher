@@ -10,10 +10,14 @@ use castanea_launcher_core::backend::{self, Choice, Verdict};
 use castanea_launcher_core::install::update::{self, Check};
 use castanea_launcher_core::install::{Build, Platform, Release, ReleaseApi, local, notes};
 use castanea_launcher_core::launch::{self, Outcome, Running};
+use castanea_launcher_core::settings::OnGameStart;
 use eframe::egui;
 
 use crate::app::App;
 use crate::jobs::{self, Done};
+
+/// How long a started game must stay up before the window follows "When the game starts".
+pub const START_CONFIRM: std::time::Duration = std::time::Duration::from_secs(2);
 
 /// Where the update of the game build stands.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -266,6 +270,7 @@ impl App {
                     started: Instant::now(),
                     choice,
                 });
+                self.start_action_due = true;
             }
             Err(error) => self.error(error.to_string()),
         }
@@ -300,6 +305,8 @@ impl App {
     pub fn stop(&mut self) {
         let Some(session) = &mut self.session else { return };
         let Some(mut running) = session.running.take() else { return };
+        self.start_action_due = false;
+        self.minimised_for_game = false;
         match running.stop() {
             Ok(outcome) => {
                 if let Ok(log) = running.log.lock() {
@@ -341,8 +348,9 @@ impl App {
             session.log_total = log.total;
         }
         let ended = match running.poll() {
-            Ok(None) => return,
+            Ok(None) => return self.apply_start_action(ctx),
             Ok(Some(outcome)) => {
+                self.start_action_due = false;
                 if let Ok(log) = running.log.lock() {
                     session.log = log.lines.iter().cloned().collect();
                 }
@@ -374,10 +382,39 @@ impl App {
             Ok(_) => {}
             Err(error) => self.error(error),
         }
+        self.restore_after_game(ctx);
         if let Update::Ready { version } = &self.update {
             let version = version.clone();
             self.apply(ctx, version);
         }
+    }
+
+    /// Applies "When the game starts" once the game has stayed up for `START_CONFIRM`: a game that dies at once leaves the
+    /// launcher in view with its output.
+    fn apply_start_action(&mut self, ctx: &egui::Context) {
+        let confirmed = self.session.as_ref().is_some_and(|s| s.started.elapsed() >= START_CONFIRM);
+        if !self.start_action_due || !confirmed {
+            return;
+        }
+        self.start_action_due = false;
+        match self.settings.on_game_start {
+            OnGameStart::Minimise => {
+                self.minimised_for_game = true;
+                ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+            }
+            OnGameStart::Close => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+            OnGameStart::KeepOpen => {}
+        }
+    }
+
+    /// Brings the window back when it was minimised for the game; the Game output page then shows how the game ended.
+    fn restore_after_game(&mut self, ctx: &egui::Context) {
+        if !std::mem::take(&mut self.minimised_for_game) {
+            return;
+        }
+        ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+        ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+        ctx.request_repaint();
     }
 }
 

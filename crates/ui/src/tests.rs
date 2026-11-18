@@ -6,6 +6,8 @@ mod brand;
 mod launcher;
 mod layout;
 mod news;
+#[cfg(unix)]
+mod on_start;
 mod storage;
 
 use std::fs;

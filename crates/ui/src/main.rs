@@ -43,6 +43,14 @@ struct Launcher {
 }
 
 impl eframe::App for Launcher {
+    // A minimised window runs no `ui`, only this: the game's end must still bring the window back.
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.app.poll_session(ctx);
+        if self.app.is_running() {
+            ctx.request_repaint_after(std::time::Duration::from_secs_f64(theme::anim::BUSY_REPAINT));
+        }
+    }
+
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         shell::ui(&mut self.app, ui);
         self.app.frame_drawn();

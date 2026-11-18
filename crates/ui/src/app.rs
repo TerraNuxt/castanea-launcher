@@ -140,6 +140,10 @@ pub struct App {
     pub session: Option<Session>,
     /// The graphics backend is being decided for a start (the probe may run); Play waits.
     pub starting: bool,
+    /// A game was just started and "When the game starts" has not been applied to the window yet.
+    pub start_action_due: bool,
+    /// The window was minimised because the game started; it is brought back when the game ends.
+    pub minimised_for_game: bool,
     /// The last start's backend, for About.
     pub backend_last: Option<castanea_launcher_core::backend::LastLaunch>,
     pub notes: Vec<Note>,
@@ -199,6 +203,8 @@ impl App {
             checked: false,
             session: None,
             starting: false,
+            start_action_due: false,
+            minimised_for_game: false,
             backend_last: None,
             notes: Vec::new(),
             index: Index::default(),

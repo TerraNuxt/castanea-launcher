@@ -34,6 +34,22 @@ impl Graphics {
     }
 }
 
+/// What the launcher window does once the game is running (the game itself is detached either way).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OnGameStart {
+    /// Minimise the window; it comes back when the game ends.
+    #[default]
+    Minimise,
+    /// Close the launcher; the game keeps running and the next launcher start finds it again.
+    Close,
+    KeepOpen,
+}
+
+impl OnGameStart {
+    pub const ALL: [Self; 3] = [Self::Minimise, Self::Close, Self::KeepOpen];
+}
+
 /// How the game is started.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
@@ -68,6 +84,8 @@ pub struct Settings {
     /// Developer use: install a game build whose signature is missing or wrong. Debug builds only; a release build
     /// ignores it (see `unsigned_allowed`), and the launcher's own updates always need a signature.
     pub allow_unsigned: bool,
+    /// What the launcher window does when the game has started.
+    pub on_game_start: OnGameStart,
     pub game: GameOptions,
     /// For people building the game from source: run this folder in place instead of the newest release.
     pub dev_build: Option<PathBuf>,
@@ -84,6 +102,7 @@ impl Default for Settings {
             beta: false,
             launcher_update: true,
             allow_unsigned: false,
+            on_game_start: OnGameStart::default(),
             game: GameOptions::default(),
             dev_build: None,
         }
@@ -123,6 +142,22 @@ mod tests {
         settings.indexes.push("https://example.org/index.json".to_owned());
         settings.save(&paths).unwrap();
         assert_eq!(Settings::load(&paths).unwrap(), settings);
+    }
+
+    #[test]
+    fn when_the_game_starts_defaults_to_minimise_and_round_trips() {
+        assert_eq!(Settings::default().on_game_start, OnGameStart::Minimise);
+        let none: Settings = serde_json::from_str("{}").unwrap();
+        assert_eq!(none.on_game_start, OnGameStart::Minimise, "an old file without the key");
+        for choice in OnGameStart::ALL {
+            let settings = Settings { on_game_start: choice, ..Settings::default() };
+            let text = serde_json::to_string(&settings).unwrap();
+            assert_eq!(serde_json::from_str::<Settings>(&text).unwrap().on_game_start, choice);
+        }
+        let named: Settings = serde_json::from_str(r#"{"on_game_start": "keep_open"}"#).unwrap();
+        assert_eq!(named.on_game_start, OnGameStart::KeepOpen);
+        let close: Settings = serde_json::from_str(r#"{"on_game_start": "close"}"#).unwrap();
+        assert_eq!(close.on_game_start, OnGameStart::Close);
     }
 
     #[test]
