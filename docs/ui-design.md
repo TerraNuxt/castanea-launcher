@@ -1,8 +1,8 @@
 # castanea launcher: UI design
 
 Clean and matte, like a well-made native settings app: flat solid surfaces, 1 px hairlines where things need to be
-apart, one muted accent used sparingly, one type family, few icons. No gradients, glow, shadows, tinted cards, icon
-bubbles or illustrations. Every colour, size and duration is a token in `crates/ui/src/theme.rs`; pages build on the
+apart, one muted accent used sparingly, one type family, few icons. No gradients, glow, shadows, tinted cards or icon
+bubbles; the one picture is the flat, low-contrast scene behind the Play block ([The scene](#the-scene)). Every colour, size and duration is a token in `crates/ui/src/theme.rs`; pages build on the
 components in `crates/ui/src/widgets/`. Text is Inter (OFL), icons are Phosphor line icons (MIT), see `third_party/`.
 The project's own copper font ([The brand font](#the-brand-font)) sets the wordmark, page titles and the Play label.
 Screenshots of every page: [screenshots/](screenshots/).
@@ -38,7 +38,7 @@ this order, F5 plays, Ctrl+F searches mods, Esc closes a question or leaves the 
                           +------------------------+
                           ======------------------                2 px progress, only while downloading
                  castanea 0.2.0  ·  up to date                    12 pt muted, one line
-                       What's new   Game output                a quiet link each: the release notes in a dialog; the game output once the game has run
+                              Game output                    a quiet link once the game has run; the release notes are in the news column below
 ```
 
 The block sits a little above the middle of the page. The status line says one of:
@@ -57,6 +57,50 @@ The block sits a little above the middle of the page. The status line says one o
 
 While the game runs the button is Stop (a secondary button: hairline outline, no fill) with the running time in a
 fixed-width slot after the label, so the label does not move as the seconds change.
+
+### News column
+
+The block above sits in the left part of the page; the right part is the news column (32 % of the content width, 280 to
+380 wide), a hairline between them. Below 720 wide (content, so a window narrower than about 970) the Play block stays
+on top over its scene and the news scroll underneath it, so Play is always in view.
+
+```
+ +--------------------------------------------+ | News                         offline · saved
+ |  the scene, low contrast                   | | ------------------------------------------
+ |                CASTANEA                    | | The steam age begins                       title, semibold
+ |            +-------------+                 | | 2026-11-12 · Release                       date · tag, small
+ |            |    PLAY     |                 | | Smelteries, casting tables and the first   body, muted; **bold** and
+ |            +-------------+                 | | steam machines are in. Cast your first …   underlined https links only
+ |        castanea 0.2.0 · up to date         | | Show more   Read online                    quiet links
+ |   hills, a smeltery with steam, pines      | | ------------------------------------------
+ +--------------------------------------------+ | What's new in 0.2.0                        the release notes of the
+                                                | • Smelteries and casting tables            installed build: five lines
+                                                | Show all                                   and a link to the dialog
+```
+
+- The list scrolls; "What's new in this version" stays at the foot of the column (without notes the news get the
+  room). "Show all" opens the release notes dialog.
+- Long text is shortened to about 200 characters until "Show more"; an item with a `url` has "Read online". Links open
+  in the system browser and are `https://` only (docs/release-api.md, "News").
+- Empty and failed states are one quiet muted line: "Loading news…", "No news right now.", "News could not be
+  loaded." and, in offline mode with nothing saved, "Offline. News shows up once you are online." Saved news stay on
+  screen with a small "offline · saved" mark at the right of the title.
+- The news never delay Play or the update check; the window does not redraw while it is idle (the request redraws it
+  once when it ends).
+
+### The scene
+
+A hand-drawn flat scene sits behind the Play block and runs into the page margins: low-poly hills, a smeltery with a
+chimney and steam, a sun in the accent colour and a few pines. It is `crates/ui/assets/scene.svg`, a small SVG of
+convex polygons, rects and circles with a flat fill and an opacity; `crates/ui/src/scene.rs` reads it at start and
+paints the same shapes with egui's vector shapes, so it is crisp at any size and any scale and needs no extra
+dependency (no SVG library, no PNGs). It is painted only when the window redraws, so an idle window costs nothing.
+
+Rules that tests check: every polygon is convex (egui fills only those cleanly); every shape, laid over the page
+colour, keeps the muted text colour at 4.5:1 or better and the main text colour at 7:1, and is never brighter than 1.5:1
+against the page unless it is mostly see-through, so no text is ever hard to read; the scene is at least as wide as its
+area and sits on its bottom edge; at a width where it does not fit, more is cut on the right (smeltery, sky) than on the
+left (the sun). The scene is original art, drawn for castanea; it does not copy any game's look.
 
 ## Mods
 

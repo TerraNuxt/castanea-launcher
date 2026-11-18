@@ -83,7 +83,17 @@ pub struct Fetched {
 
 impl Client {
     pub fn new(policy: UrlPolicy) -> Self {
+        Self::build(policy, None)
+    }
+
+    /// A client for small optional documents (the news): the whole request, body included, must end within `limit`.
+    pub fn with_deadline(policy: UrlPolicy, limit: Duration) -> Self {
+        Self::build(policy, Some(limit))
+    }
+
+    fn build(policy: UrlPolicy, deadline: Option<Duration>) -> Self {
         let config = ureq::Agent::config_builder()
+            .timeout_global(deadline)
             .user_agent(USER_AGENT)
             .https_only(!policy.allow_loopback_http)
             .http_status_as_error(false)

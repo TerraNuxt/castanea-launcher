@@ -9,6 +9,7 @@ use eframe::egui;
 use crate::app::{App, ModsView, Page};
 use crate::game::Update;
 use crate::jobs::{self, Progress};
+use crate::news::Phase;
 
 const SIZE: [f32; 2] = [1280.0, 720.0];
 
@@ -42,6 +43,11 @@ fn language(app: &mut App, code: &str) {
     }
 }
 
+/// The made-up news in the current language.
+fn news(app: &mut App, phase: Phase) {
+    app.show_demo_news(phase);
+}
+
 fn downloading(app: &mut App) {
     app.update = Update::Downloading { version: "0.3.0".to_owned() };
     let progress = Progress { label: "0.3.0".to_owned(), done: 43, total: Some(100), speed: Some(5_200_000) };
@@ -53,35 +59,59 @@ fn up_to_date(app: &mut App) {
     jobs::set(&app.update_progress, None);
 }
 
-const STEPS: [Step; 18] = [
+const STEPS: [Step; 20] = [
     Step {
         name: "home",
         wait: Wait::Idle,
         setup: |app| {
             up_to_date(app);
+            news(app, Phase::Fresh);
             app.go(Page::Home);
         },
     },
-    Step { name: "home-de", wait: Wait::Idle, setup: |app| language(app, "de") },
+    Step {
+        name: "home-de",
+        wait: Wait::Idle,
+        setup: |app| {
+            language(app, "de");
+            news(app, Phase::Fresh);
+        },
+    },
     Step {
         name: "home-update",
         wait: Wait::Idle,
         setup: |app| {
             language(app, "en");
             downloading(app);
+            news(app, Phase::Fresh);
         },
     },
-    Step { name: "home-update-de", wait: Wait::Idle, setup: |app| language(app, "de") },
+    Step {
+        name: "home-update-de",
+        wait: Wait::Idle,
+        setup: |app| {
+            language(app, "de");
+            news(app, Phase::Fresh);
+        },
+    },
     Step {
         name: "home-running",
         wait: Wait::Running,
         setup: |app| {
             language(app, "en");
             up_to_date(app);
+            news(app, Phase::Fresh);
             app.play_blocking();
         },
     },
-    Step { name: "home-running-de", wait: Wait::Running, setup: |app| language(app, "de") },
+    Step {
+        name: "home-running-de",
+        wait: Wait::Running,
+        setup: |app| {
+            language(app, "de");
+            news(app, Phase::Fresh);
+        },
+    },
     Step {
         name: "output",
         wait: Wait::Running,
@@ -97,10 +127,35 @@ const STEPS: [Step; 18] = [
             app.stop();
             app.settings.offline = true;
             app.update = Update::Offline;
+            news(app, Phase::Offline);
             app.go(Page::Home);
         },
     },
-    Step { name: "home-offline-de", wait: Wait::Idle, setup: |app| language(app, "de") },
+    Step {
+        name: "home-offline-de",
+        wait: Wait::Idle,
+        setup: |app| {
+            language(app, "de");
+            news(app, Phase::Offline);
+        },
+    },
+    Step {
+        name: "home-no-news",
+        wait: Wait::Idle,
+        setup: |app| {
+            language(app, "en");
+            news(app, Phase::Fresh);
+            app.news.items.clear();
+        },
+    },
+    Step {
+        name: "home-news-open",
+        wait: Wait::Idle,
+        setup: |app| {
+            news(app, Phase::Fresh);
+            app.news.open.insert("steam-age".to_owned());
+        },
+    },
     Step {
         name: "mods-installed",
         wait: Wait::Idle,

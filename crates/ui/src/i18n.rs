@@ -12,6 +12,8 @@ fn source(code: &str) -> &'static str {
 }
 
 pub struct Strings {
+    /// The language in use: `en` or `de`.
+    pub code: String,
     map: HashMap<String, String>,
     fallback: HashMap<String, String>,
 }
@@ -25,7 +27,7 @@ impl Strings {
     pub fn load(code: &str) -> Self {
         let code = if code.is_empty() { system_language() } else { code.to_owned() };
         let code = if LANGUAGES.iter().any(|(c, _)| *c == code) { code } else { "en".to_owned() };
-        Self { map: parse(source(&code)), fallback: parse(source("en")) }
+        Self { map: parse(source(&code)), fallback: parse(source("en")), code }
     }
 
     /// The text for `key`; a missing key shows itself, so it is easy to spot.

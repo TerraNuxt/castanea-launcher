@@ -68,7 +68,7 @@ over a channel. `ui/game.rs` holds the game's update state machine and the runni
 |---|---|---|
 | config (`launcher.json`) | `$XDG_CONFIG_HOME/castanea-launcher` or `~/.config/castanea-launcher` | `%APPDATA%\castanea-launcher` |
 | data (the build, the game folder, window state) | `$XDG_DATA_HOME/castanea-launcher` or `~/.local/share/castanea-launcher` | `%LOCALAPPDATA%\castanea-launcher` |
-| cache (index, downloads, images) | `$XDG_CACHE_HOME/castanea-launcher` or `~/.cache/castanea-launcher` | `%LOCALAPPDATA%\castanea-launcher\cache` |
+| cache (index, downloads, images, news) | `$XDG_CACHE_HOME/castanea-launcher` or `~/.cache/castanea-launcher` | `%LOCALAPPDATA%\castanea-launcher\cache` |
 
 `CASTANEA_LAUNCHER_HOME=<dir>` puts all three below one folder (portable mode, tests, screenshots).
 
@@ -91,6 +91,7 @@ config/
 cache/
   index/<sha256 of URL>.json and .meta   the last good copy of each index and its ETag
   downloads/<sha256>.part                a download in progress, kept to be resumed
+  news/<lang>.json                       the last good news feed per language and its ETag (docs/release-api.md, "News")
 ```
 
 The game reads `assets/` and `mods/` from its working directory (`docs/modding/modding.md` of the game), so the game

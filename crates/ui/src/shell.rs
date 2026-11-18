@@ -15,6 +15,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui) {
         app.check_updates(&ctx);
     }
     app.collect_jobs(&ctx);
+    app.auto_news(&ctx);
     app.auto_check_launcher(&ctx);
     app.poll_session(&ctx);
     if app.is_running() || app.jobs.running > 0 {

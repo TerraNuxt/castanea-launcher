@@ -2,6 +2,8 @@
 # Takes the docs/screenshots PNGs on a Linux host: a demo launcher home with a fake installed game, a private Xvfb
 # display, software Vulkan (lavapipe). No window reaches the real desktop. Run from the repo root inside tools/shell.nix:
 #   nix-shell tools/shell.nix --run "tools/screenshots.sh target/release/castanea-launcher docs/screenshots"
+# Another window size: CASTANEA_SHOT_SIZE=1920x1080 SCREENSHOT_SCREEN=1920x1080x24 (the Xvfb screen must be as big).
+# The demo home shows made-up news; a size below the minimum window shows the narrow layout.
 set -euo pipefail
 BIN=$(realpath "$1")
 OUT=$(realpath -m "$2")
@@ -21,7 +23,8 @@ HOME_DIR=$DEMO/home
 GAME=$HOME_DIR/data/build/current
 mkdir -p "$GAME/assets/engine"
 cat > "$GAME/install.json" <<'EOF'
-{ "version": "0.2.0", "tag": "v0.2.0", "asset": "castanea-0.2.0-x86_64-unknown-linux-gnu.zip", "sha256": null }
+{ "version": "0.2.0", "tag": "v0.2.0", "asset": "castanea-0.2.0-x86_64-unknown-linux-gnu.zip", "sha256": null,
+  "notes": "• Smelteries and casting tables\n• The first steam machines\n• Faster world loading\n• Fewer crashes with mods\n• Copper pipes keep their colour" }
 EOF
 cat > "$GAME/castanea" <<'EOF'
 #!/bin/sh
@@ -50,7 +53,7 @@ cat > "$HOME_DIR/config/launcher.json" <<EOF
 EOF
 
 # A display of our own: nothing reaches the real desktop. The shots are taken from inside the launcher.
-Xvfb ":$DISPLAY_NUMBER" -screen 0 1280x800x24 -nolisten tcp >/dev/null 2>&1 &
+Xvfb ":$DISPLAY_NUMBER" -screen 0 "${SCREENSHOT_SCREEN:-1280x800x24}" -nolisten tcp >/dev/null 2>&1 &
 XVFB_PID=$!
 sleep 1
 mkdir -p "$OUT"

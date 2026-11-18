@@ -203,7 +203,7 @@ fn no_release(body: &[u8]) -> bool {
         .unwrap_or(false)
 }
 
-fn loopback(url: &str) -> bool {
+pub(crate) fn loopback(url: &str) -> bool {
     UrlPolicy { allow_loopback_http: true }.check(url).is_ok() && url.starts_with("http://")
 }
 

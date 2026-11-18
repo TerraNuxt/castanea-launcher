@@ -5,6 +5,7 @@
 mod brand;
 mod launcher;
 mod layout;
+mod news;
 
 use std::fs;
 use std::path::Path;
@@ -16,11 +17,15 @@ use eframe::egui;
 use crate::app::{App, Confirm, ModsView, NoteKind, Page};
 use crate::game::Update;
 use crate::jobs::{self, Progress};
+use crate::news::Phase;
 use crate::shell;
 
 pub type View = (&'static str, fn(&mut App));
 
 pub const SIZES: [[f32; 2]; 3] = [[1000.0, 640.0], [1280.0, 720.0], [1600.0, 900.0]];
+/// The home page's sizes: the small window below the minimum (news below the Play block), the common ones and a big one.
+pub const HOME_SIZES: [[f32; 2]; 5] =
+    [[900.0, 600.0], [1000.0, 640.0], [1280.0, 720.0], [1600.0, 900.0], [1920.0, 1080.0]];
 
 pub struct Harness {
     pub app: App,
@@ -138,6 +143,23 @@ impl Harness {
         vec![
             ("home", |app| {
                 app.update = Update::Offline;
+                app.go(Page::Home);
+            }),
+            ("home-news", |app| {
+                app.update = Update::UpToDate;
+                app.show_demo_news(Phase::Fresh);
+                app.installed.as_mut().unwrap().notes = "• Smelteries\n• Steam machines\n• Faster loading".into();
+                app.go(Page::Home);
+            }),
+            ("home-news-offline", |app| {
+                app.show_demo_news(Phase::Offline);
+                app.news.open.insert("steam-age".to_owned());
+                app.go(Page::Home);
+            }),
+            ("home-news-empty", |app| {
+                app.news.items.clear();
+                app.news.phase = Phase::Failed;
+                app.installed.as_mut().unwrap().notes.clear();
                 app.go(Page::Home);
             }),
             ("home-update", |app| {
@@ -389,6 +411,7 @@ fn keys_in_code() -> Vec<(String, String)> {
         "about.",
         "launcher.",
         "backend.",
+        "news.",
     ];
     let mut out = Vec::new();
     let mut stack = vec![Path::new(env!("CARGO_MANIFEST_DIR")).join("src")];

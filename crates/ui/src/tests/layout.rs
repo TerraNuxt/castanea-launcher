@@ -3,10 +3,11 @@
 
 use eframe::egui::{self, Rect};
 
-use super::{Harness, SIZES};
+use super::{HOME_SIZES, Harness, SIZES};
 use crate::app::{ModsView, Page};
 use crate::game::Update;
 use crate::probe;
+use crate::theme::layout;
 
 struct Shot(Vec<(String, Rect)>);
 
@@ -63,7 +64,7 @@ fn named(shot: &Shot, names: &[&str]) -> Vec<(String, Rect)> {
 #[test]
 fn the_frame_and_the_home_page_hold_together() {
     for language in ["en", "de"] {
-        for size in SIZES {
+        for size in HOME_SIZES {
             let mut h = Harness::new(language);
             h.size = egui::vec2(size[0], size[1]);
             let screen = Rect::from_min_size(egui::Pos2::ZERO, h.size);
@@ -86,12 +87,19 @@ fn the_frame_and_the_home_page_hold_together() {
                 assert!(home.len() >= 3, "{context}: {:?}", shot.names());
                 all_inside(&context, &home, content);
                 disjoint(&context, &home);
+                let play = shot.get("home:play");
                 for (name, rect) in &home {
-                    let off = (rect.center().x - content.center().x).abs();
+                    let off = (rect.center().x - play.center().x).abs();
                     assert!(off < 1.0, "{context}: {name} is {off} off the centre");
                 }
-                let play = shot.get("home:play");
-                assert!(play.top() > content.top() + content.height() * 0.2, "{context}: the button sits mid page");
+                let scene = shot.get("home:scene");
+                assert!(
+                    (play.center().x - scene.center().x).abs() < 1.0 + layout::PAGE_MARGIN,
+                    "{context}: centred on the scene"
+                );
+                if content.width() >= layout::NARROW {
+                    assert!(play.top() > content.top() + content.height() * 0.2, "{context}: the button sits mid page");
+                }
             }
         }
     }

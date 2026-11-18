@@ -21,6 +21,7 @@ use crate::i18n::Strings;
 use crate::icons;
 use crate::jobs::{self, Done, Jobs, Slot};
 use crate::launcher::LauncherUpdate;
+use crate::news::NewsState;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Page {
@@ -146,6 +147,7 @@ pub struct App {
     /// Scrolls the open Advanced section into view once.
     pub reveal_advanced: bool,
     pub focus_search: bool,
+    pub news: NewsState,
 }
 
 impl App {
@@ -196,7 +198,9 @@ impl App {
             advanced_open: false,
             reveal_advanced: false,
             focus_search: false,
+            news: NewsState::default(),
         };
+        app.load_news_cache();
         for error in errors {
             app.error(error);
         }
@@ -326,6 +330,7 @@ impl App {
                     }
                     self.reload_mods();
                 }
+                Done::News { lang, result } => self.on_news(lang, result),
                 Done::Image { url, result } => {
                     let state = match result {
                         Ok(bytes) => ImageState::Ready(egui::load::Bytes::from(bytes)),
@@ -338,7 +343,11 @@ impl App {
     }
 
     pub fn reload_language(&mut self) {
+        let before = std::mem::take(&mut self.tr.code);
         self.tr = Strings::load(&self.settings.language);
+        if before != self.tr.code {
+            self.load_news_cache();
+        }
     }
 }
 

@@ -80,6 +80,11 @@ impl Paths {
         self.cache.join("index")
     }
 
+    /// The saved news feed, one file per language.
+    pub fn news_cache(&self) -> PathBuf {
+        self.cache.join("news")
+    }
+
     pub fn downloads(&self) -> PathBuf {
         self.cache.join("downloads")
     }

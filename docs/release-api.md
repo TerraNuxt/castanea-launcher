@@ -112,6 +112,61 @@ launcher's own updates always need a signature. A local build folder is never do
 `CASTANEA_TRUST_KEYS_FILE` (one base64 public key per line, `#` comments) replaces the embedded list in debug builds and
 tests only; a release build ignores it, so a release cannot be redirected to other keys.
 
+## News
+
+The home page shows a News column (docs/ui-design.md, "Play (home)"). The launcher client is
+`crates/core/src/news.rs` (tested in `crates/core/src/news/tests.rs` against a local server); the server side is built
+by the backend against this contract and is **planned**: until it exists the launcher gets `404` and shows its quiet
+"News could not be loaded" line, or the saved news.
+
+### `GET {base}/v1/news?lang=en|de&limit=10`
+
+`lang` is `en` or `de`, the launcher's language (any other value is sent as `en`); `limit` is how many items at most
+(the launcher asks for 10, and keeps at most 20 whatever the server sends). Newest first. No `platform`, `channel` or
+`product`: the news are the same for everyone, per language. The server should send an `ETag` and answer
+`If-None-Match` with `304` (empty body); the launcher always sends it back when it has saved news.
+
+`200`:
+
+```json
+{
+  "items": [
+    {
+      "id": "steam-age",
+      "title": "The steam age begins",
+      "body": "Smelteries and the first steam machines are in. **Cast your first copper part**, then read\nhow it works in [the casting guide](https://castanea.xenoo.dev/docs/casting).\n\nA second paragraph.",
+      "date": "2026-11-12",
+      "tag": "release",
+      "url": "https://castanea.xenoo.dev/news/steam-age"
+    }
+  ]
+}
+```
+
+| Field | Rule |
+|---|---|
+| `id` | A stable string, unique in the list (up to 64 characters). Only used to remember which item is opened; a repeated id is dropped, a missing one becomes `#<position>`. |
+| `title` | Plain text, one line, up to 120 characters. An item without a title is dropped. |
+| `body` | Plain text, up to 1500 characters, `\n` for line breaks and a blank line for a paragraph. **No HTML.** Two forms are understood, nothing else: `**bold**` and `[text](https://…)`. Anything else, `<b>` and `&amp;` included, is shown as it is. May be empty. |
+| `date` | `YYYY-MM-DD`, or a full ISO time (the launcher shows the day). Up to 32 characters. May be empty. |
+| `tag` | A short label such as `release`, `launcher`, `community` (up to 24 characters), shown after the date. May be empty. Not translated by the launcher: the server sends it in `lang`. |
+| `url` | Optional. `https://` only; "Read online" opens it in the system browser. |
+
+Other answers: `304` (nothing changed), `404` or any other status (an error: the launcher keeps what it has saved), `429`
+and `5xx` (the same; the news are never retried in a loop). The server writes the texts in the asked language; the
+launcher does not translate or fall back between languages.
+
+### What the launcher does with it
+
+| Step | Rule |
+|---|---|
+| Untrusted | Everything from the server is data. The answer must be at most 256 KB (more is refused). Control characters and text-direction overrides are removed, every field is cut to its limit, at most 20 items are kept, `http://`, `javascript:`, `file:` and any other link is dropped (link text stays as text), a link or `url` with a user name before the host or with spaces is dropped. Bad JSON, a missing `items` list or a wrong type for a field never crashes: a bad item is skipped, a bad document is an error. |
+| Request | One `GET` per launcher start and per language change, on a background thread; no retry; the whole request is dropped after 5 s. Not in offline mode (the saved news are shown). Never blocks Play, the update check or any other page. |
+| Cache | `cache/news/<lang>.json` (`{"etag": …, "items": […]}`, written atomically, read through the same limits). Read when the launcher starts, so the news show at once and without a network. A `200` replaces it; a `304` keeps it; an error leaves it as it was. A damaged or oversized file reads as no news. |
+| Offline | In offline mode, or when the request fails, the saved news stay on screen with a small "offline · saved" mark; with nothing saved a one-line message says so. |
+| Links | A click on "Read online" or a link in the text opens the address in the system browser (`xdg-open`, `explorer`). The launcher shows the address as a tooltip. |
+| Language | The news follow the launcher's language setting; changing it shows the saved news of the other language and asks again. |
+
 ## What the launcher does with it
 
 | Step | Rule |
@@ -152,6 +207,7 @@ tests only; a release build ignores it, so a release cannot be redirected to oth
 - `channel=beta` could mean "newest of beta and stable" on the server, so the launcher needs one request. Today it asks
   for both and compares.
 - `ETag` and `If-None-Match` on `latest` (a cheap `304` for every start).
+- The server side of [News](#news) (`GET /v1/news`), which the launcher already asks for.
 - `min_launcher_version` in a release, so the server can tell an old launcher that the zip layout changed.
 - `Content-Type: application/zip` and `Content-Disposition` on the download (the launcher does not rely on them).
 - `Retry-After` as an HTTP date is not parsed (only seconds); the server should send seconds.

@@ -11,6 +11,7 @@ pub mod json_file;
 pub mod launch;
 pub mod migrate;
 pub mod mods;
+pub mod news;
 pub mod paths;
 pub mod selfupdate;
 pub mod settings;

@@ -8,8 +8,10 @@ mod i18n;
 mod icons;
 mod jobs;
 mod launcher;
+mod news;
 mod pages;
 mod probe;
+mod scene;
 mod screenshots;
 mod shell;
 mod sidebar;
@@ -93,12 +95,14 @@ fn main() -> std::process::ExitCode {
             Startup::Normal => {}
         }
     }
+    let viewport = egui::ViewportBuilder::default()
+        .with_title("castanea")
+        .with_inner_size(theme::layout::START_WINDOW)
+        .with_app_id("castanea-launcher");
+    // Screenshots may ask for a window below the minimum, to show the narrow layout.
+    let viewport = if screenshot_mode { viewport } else { viewport.with_min_inner_size(theme::layout::MIN_WINDOW) };
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_title("castanea")
-            .with_inner_size(theme::layout::START_WINDOW)
-            .with_min_inner_size(theme::layout::MIN_WINDOW)
-            .with_app_id("castanea-launcher"),
+        viewport,
         persist_window: !screenshot_mode,
         persistence_path: (!screenshot_mode).then(|| paths.data.join("window")),
         ..Default::default()

@@ -111,8 +111,15 @@ pub mod layout {
     pub const LABEL_NUDGE: f32 = 6.0;
     /// Where the home block sits: this share of the free height goes above it.
     pub const HOME_RISE: f32 = 0.42;
-    /// The content width below which the mod browser shows the list or the details, not both.
+    /// The content width below which the mod browser shows the list or the details, not both, and the home page puts
+    /// the news below the Play block instead of beside it.
     pub const NARROW: f32 = 720.0;
+    /// The news column of the home page: its share of the content width, at least and at most.
+    pub const NEWS_SHARE: f32 = 0.32;
+    pub const NEWS_MIN: f32 = 280.0;
+    pub const NEWS_MAX: f32 = 380.0;
+    /// The height of the Play block's area when the news sits below it.
+    pub const HERO_NARROW: f32 = 280.0;
     pub const DIALOG: f32 = 440.0;
     pub const TOAST: f32 = 360.0;
     pub const SWITCH: [f32; 2] = [32.0, 18.0];

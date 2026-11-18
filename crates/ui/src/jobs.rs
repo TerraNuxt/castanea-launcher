@@ -37,6 +37,11 @@ pub enum Done {
         url: String,
         result: Result<Vec<u8>, String>,
     },
+    /// The news feed of one language, brought up to date.
+    News {
+        lang: String,
+        result: Result<Vec<castanea_launcher_core::news::Item>, String>,
+    },
 }
 
 /// A download in progress: what, bytes done, bytes in all.
