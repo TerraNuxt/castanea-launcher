@@ -79,6 +79,7 @@ fn outcome(app: &mut App, ui: &mut egui::Ui) {
     } else {
         return;
     };
+    let hint = session.outcome.as_ref().and_then(|o| app.missing_library_hint(o));
     let reports = session.outcome.as_ref().map(|o| o.crash_reports.clone()).unwrap_or_default();
     let command = session.command.clone();
     let running = session.running.is_some();
@@ -94,6 +95,9 @@ fn outcome(app: &mut App, ui: &mut egui::Ui) {
             });
         }
     });
+    if let Some(hint) = hint {
+        ui.label(RichText::new(hint).size(size::SMALL).color(color::DANGER));
+    }
     widgets::one_line(ui, RichText::new(command).font(font::mono(size::SMALL)).color(color::TEXT_MUTED));
     for report in &reports {
         ui.horizontal(|ui| {

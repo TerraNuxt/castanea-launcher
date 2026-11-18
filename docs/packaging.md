@@ -52,6 +52,20 @@ Where each is built:
   and a checkout outside needs `--filesystem` for it.
 - **Nix**: the flake, see [nix.md](nix.md).
 
+### What the game needs on Linux
+
+The launcher starts the game as a child with its own environment, so every package must make these available to the
+game too (the launcher shows the missing library name and a hint when the game exits with 127):
+
+- `libasound.so.2` (alsa-lib / `libasound2`): the only library the game binary links besides glibc and libgcc.
+- A Vulkan driver and the loader `libvulkan.so.1` (`libvulkan1`, Mesa Vulkan or the vendor driver); the game loads them
+  at run time.
+- `libxkbcommon` and either Wayland (`libwayland-client`) or X11 (`libX11`, `libxcb`, `libXcursor`, `libXi`,
+  `libXrandr`).
+- `libudev` for input devices.
+
+Flatpak and AppImage get these from the runtime; a Nix package puts them on `LD_LIBRARY_PATH` (see [nix.md](nix.md)).
+
 ## Releases of the launcher
 
 Launchers update themselves from the release server ([design.md](design.md#launcher-self-update)). A launcher release

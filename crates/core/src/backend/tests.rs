@@ -211,6 +211,7 @@ fn only_an_early_crash_of_a_chosen_vulkan_start_is_remembered() {
         crashed: code != 0,
         crash_reports: Vec::new(),
         seconds,
+        missing_library: None,
     };
     let vulkan = choice(Graphics::Vulkan, Reason::VulkanWorks);
     assert_eq!(record_outcome(&paths, &vulkan, &outcome(1, EARLY_SECONDS)), Verdict::Nothing, "a late crash");

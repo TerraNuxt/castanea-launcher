@@ -5,7 +5,7 @@ pub mod prepare;
 pub mod run;
 
 pub use plan::{Plan, plan};
-pub use run::{Outcome, Running};
+pub use run::{Outcome, Running, library_package, missing_library};
 
 use crate::install::Build;
 use crate::paths::Paths;

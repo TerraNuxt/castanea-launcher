@@ -1,5 +1,6 @@
-# The launcher binary. Its window loads Vulkan, GL, Wayland, X11 and xkbcommon at run time (winit, wgpu),
-# so the wrapper puts them on LD_LIBRARY_PATH; the Vulkan and GL drivers come from the host.
+# The launcher binary. Its window loads Vulkan, GL, Wayland, X11 and xkbcommon at run time (winit, wgpu), and the game it
+# starts needs alsa. The wrapper puts them on LD_LIBRARY_PATH; the game inherits that environment. On NixOS the
+# wrapper also appends the host's driver folder when it exists; the Vulkan and GL drivers come from the host.
 { lib
 , rustPlatform
 , pkg-config
@@ -9,9 +10,12 @@
 , libGL
 , vulkan-loader
 , libX11
+, libxcb
 , libXcursor
 , libXrandr
 , libXi
+, alsa-lib
+, systemdLibs
 }:
 
 let
@@ -21,9 +25,12 @@ let
     libGL
     vulkan-loader
     libX11
+    libxcb
     libXcursor
     libXrandr
     libXi
+    alsa-lib
+    systemdLibs
   ];
 in
 rustPlatform.buildRustPackage {
@@ -42,7 +49,9 @@ rustPlatform.buildRustPackage {
 
   postInstall = ''
     wrapProgram $out/bin/castanea-launcher \
-      --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath runtimeLibs}
+      --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath runtimeLibs} \
+      --run 'if [ -d /run/opengl-driver/lib ]; then export LD_LIBRARY_PATH="''${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}/run/opengl-driver/lib"; fi' \
+      --run 'if [ -d /run/opengl-driver/share/vulkan/icd.d ]; then export XDG_DATA_DIRS="''${XDG_DATA_DIRS:-/usr/local/share:/usr/share}:/run/opengl-driver/share"; fi'
     install -Dm644 packaging/linux/castanea-launcher.desktop -t $out/share/applications
     install -Dm644 packaging/linux/castanea-launcher.png \
       $out/share/icons/hicolor/512x512/apps/castanea-launcher.png

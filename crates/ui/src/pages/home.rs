@@ -209,6 +209,10 @@ pub fn status_line(app: &App) -> (String, egui::Color32) {
         Update::Failed(_) => Some(tr.get("home.check_failed").to_owned()),
     };
     let state = if app.starting { Some(tr.get("home.checking_graphics").to_owned()) } else { state };
+    let ended = app.session.as_ref().filter(|s| s.running.is_none()).and_then(|s| s.outcome.as_ref());
+    if let Some(hint) = ended.filter(|o| o.crashed).and_then(|o| app.missing_library_hint(o)) {
+        return (hint, color::DANGER);
+    }
     let tint = if matches!(app.update, Update::Failed(_)) { color::DANGER } else { color::TEXT_MUTED };
     let text = match (build, state) {
         (Some(build), Some(state)) => format!("{build}  ·  {state}"),

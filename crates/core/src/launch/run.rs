@@ -42,6 +42,33 @@ pub struct Outcome {
     pub crashed: bool,
     pub crash_reports: Vec<PathBuf>,
     pub seconds: u64,
+    /// The shared library the loader could not find (`libasound.so.2`), read from the output.
+    pub missing_library: Option<String>,
+}
+
+/// The library name in an `error while loading shared libraries: <lib>: cannot open ...` line.
+pub fn missing_library<'a>(lines: impl IntoIterator<Item = &'a str>) -> Option<String> {
+    const MARK: &str = "error while loading shared libraries:";
+    lines.into_iter().find_map(|line| {
+        let rest = line[line.find(MARK)? + MARK.len()..].trim_start();
+        let name = rest.split(':').next()?.trim();
+        (!name.is_empty()).then(|| name.to_owned())
+    })
+}
+
+/// The package that provides a library, for a hint; `None` when the name is not known.
+pub fn library_package(library: &str) -> Option<&'static str> {
+    const TABLE: [(&str, &str); 8] = [
+        ("libasound.so", "alsa-lib / libasound2"),
+        ("libvulkan.so", "vulkan-loader / libvulkan1"),
+        ("libxkbcommon", "libxkbcommon"),
+        ("libwayland", "wayland / libwayland-client0"),
+        ("libudev.so", "systemd (libudev) / libudev1"),
+        ("libX11", "libX11 / libx11-6"),
+        ("libxcb", "libxcb / libxcb1"),
+        ("libGL", "libGL / libgl1"),
+    ];
+    TABLE.iter().find(|(prefix, _)| library.starts_with(prefix)).map(|(_, package)| *package)
 }
 
 pub struct Running {
@@ -120,11 +147,14 @@ impl Running {
             new.sort();
             new
         };
+        let missing_library =
+            self.log.lock().ok().and_then(|log| missing_library(log.lines.iter().map(String::as_str)));
         Outcome {
             code: status.code(),
             crashed: !status.success() || !crash_reports.is_empty(),
             crash_reports,
             seconds: self.started.elapsed().as_secs(),
+            missing_library,
         }
     }
 }

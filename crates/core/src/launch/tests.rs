@@ -208,3 +208,31 @@ fn a_launch_never_touches_backend_url_in_the_settings_or_the_environment() {
     }
     assert!(!paths.game().join("settings.json").exists(), "no settings file is created either");
 }
+
+#[cfg(unix)]
+#[test]
+fn a_missing_shared_library_is_named_in_the_outcome() {
+    let dir = tempfile::tempdir().unwrap();
+    let script = "echo \"$0: error while loading shared libraries: libasound.so.2: cannot open shared object file\" >&2; exit 127";
+    let build = fake_game(dir.path(), script);
+    let paths = crate::paths::Paths::portable(dir.path());
+    let (_plan, mut running) = launch(&paths, &build, &GameOptions::default(), 100).unwrap();
+    let outcome = loop {
+        if let Some(outcome) = running.poll().unwrap() {
+            break outcome;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    };
+    assert!(outcome.crashed);
+    assert_eq!(outcome.code, Some(127));
+    assert_eq!(outcome.missing_library.as_deref(), Some("libasound.so.2"));
+}
+
+#[test]
+fn the_loader_error_is_parsed_and_known_libraries_have_a_package() {
+    let line = "/x/castanea: error while loading shared libraries: libfoo.so.1: cannot open shared object file";
+    assert_eq!(missing_library(["started", line]).as_deref(), Some("libfoo.so.1"));
+    assert_eq!(missing_library(["all fine", "error while loading"]), None);
+    assert_eq!(library_package("libasound.so.2"), Some("alsa-lib / libasound2"));
+    assert_eq!(library_package("libfoo.so.1"), None);
+}

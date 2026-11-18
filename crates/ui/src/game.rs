@@ -285,6 +285,20 @@ impl App {
         }
     }
 
+    /// The hint for a game that could not load a library (exit 127 or a loader error), in the language of the UI.
+    pub fn missing_library_hint(&self, outcome: &Outcome) -> Option<String> {
+        let text = match (&outcome.missing_library, outcome.code) {
+            (Some(lib), _) => {
+                let package = launch::library_package(lib).unwrap_or(lib);
+                self.tr.fill("hint.missing_lib", &[("lib", lib), ("package", package)])
+            }
+            (None, Some(127)) => self.tr.get("hint.exit_unknown_lib").to_owned(),
+            _ => return None,
+        };
+        let nix = if std::path::Path::new("/etc/NIXOS").exists() { self.tr.get("hint.missing_lib_nix") } else { "" };
+        Some(format!("{text}{nix}"))
+    }
+
     /// Seconds since the running game started.
     pub fn running_seconds(&self) -> Option<u64> {
         self.session.as_ref().filter(|s| s.running.is_some()).map(|s| s.started.elapsed().as_secs())
@@ -318,7 +332,10 @@ impl App {
         match ended {
             Ok(outcome) if outcome.crashed => {
                 let code = outcome.code.map_or("-".to_owned(), |c| c.to_string());
-                let text = self.tr.fill("notes.crashed", &[("code", &code)]);
+                let text = match self.missing_library_hint(&outcome) {
+                    Some(hint) => hint,
+                    None => self.tr.fill("notes.crashed", &[("code", &code)]),
+                };
                 self.error(text);
                 let choice = self.session.as_ref().map(|s| s.choice.clone());
                 if let Some(choice) = choice
