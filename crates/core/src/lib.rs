@@ -16,6 +16,7 @@ pub mod paths;
 pub mod selfupdate;
 pub mod settings;
 pub mod signature;
+pub mod storage;
 pub mod trust;
 pub mod version;
 
