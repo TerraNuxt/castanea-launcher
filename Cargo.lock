@@ -631,7 +631,7 @@ dependencies = [
 
 [[package]]
 name = "castanea-launcher"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "castanea-launcher-core",
  "eframe",
@@ -645,7 +645,7 @@ dependencies = [
 
 [[package]]
 name = "castanea-launcher-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
