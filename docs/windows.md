@@ -57,6 +57,10 @@ Please try these on a Windows PC and report what fails:
     large view, Left and Right step, Esc goes back; *Open* starts the default image program, *Show in folder* opens Explorer with the file
     selected, *Copy* puts the picture on the clipboard (paste it into Paint), *Delete* asks and the file lands in the Recycle Bin (restore it
     there); a file that is not a picture shows `Cannot read`. The scaling at 125 % and 150 % keeps the thumbnails sharp.
+13c. The Continue card: after the game was started and ended once from the launcher and a world was played in it, Home shows `Continue`
+    with the world's name, a picture (the newest screenshot of that session, else the world's own picture), `World · n min ago · version`;
+    a click starts the game straight into the world (Game output first line `castanea.exe --world <name> --name <name>`); the card is gone
+    while the game runs and back after it ended; `data\history.json` has the start with its end. With nothing played, only Play shows.
 14. An old launcher home with profiles (from before this version): the first start keeps the last used profile's
     saves and options, says where the other profile folders stayed, and the old `data\versions` builds are gone.
 15. The start screen: with a player name set, Play opens the game's start screen (world list), not a world. The Game output

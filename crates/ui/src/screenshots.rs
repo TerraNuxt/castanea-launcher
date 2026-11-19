@@ -6,6 +6,9 @@ use std::sync::{Arc, Mutex};
 
 use eframe::egui;
 
+use castanea_launcher_core::history::{self, Entry, History};
+use castanea_launcher_core::launch::Start;
+
 use crate::app::{App, Confirm, ModsView, Page};
 use crate::game::Update;
 use crate::jobs::{self, Progress};
@@ -66,6 +69,19 @@ fn demo_screenshots(app: &mut App) {
     let _ = std::fs::create_dir_all(&dir);
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64);
     let day = 86_400_000;
+    for n in 0..14i64 {
+        let at = match n {
+            0..=4 => now - n * 47 * 60_000,
+            5..=8 => now - day - (n - 5) * 53 * 60_000,
+            _ => now - (n - 6) * day - n * 31 * 60_000,
+        };
+        let _ = demo_picture(n).save(dir.join(format!("castanea-{at}.png")));
+    }
+    app.gallery.stale = true;
+}
+
+/// A made-up flat low-poly scene, a different colour mood for each `n`.
+fn demo_picture(n: i64) -> image::RgbaImage {
     let moods: [([u8; 3], [u8; 3]); 6] = [
         ([232, 170, 120], [70, 90, 60]),
         ([120, 160, 210], [60, 100, 70]),
@@ -74,30 +90,36 @@ fn demo_screenshots(app: &mut App) {
         ([40, 50, 90], [30, 50, 60]),
         ([225, 205, 150], [100, 90, 60]),
     ];
-    for n in 0..14i64 {
-        let at = match n {
-            0..=4 => now - n * 47 * 60_000,
-            5..=8 => now - day - (n - 5) * 53 * 60_000,
-            _ => now - (n - 6) * day - n * 31 * 60_000,
+    let (sky, hills) = moods[(n as usize) % moods.len()];
+    image::RgbaImage::from_fn(960, 540, |x, y| {
+        let (fx, fy) = (x as f32 / 960.0, y as f32 / 540.0);
+        let ridge = 0.62 + 0.10 * (fx * (5.0 + n as f32 * 0.7) + n as f32).sin() + 0.05 * (fx * 17.0).sin();
+        let sun = ((fx - 0.25 - 0.05 * n as f32).powi(2) + (fy - 0.25).powi(2)).sqrt() < 0.06;
+        let colour = if fy > ridge {
+            let shade = 0.75 + 0.25 * (fy - ridge).min(0.4) / 0.4;
+            hills.map(|c| (f32::from(c) * shade) as u8)
+        } else if sun {
+            [250, 240, 200]
+        } else {
+            sky.map(|c| (f32::from(c) * (1.1 - 0.35 * fy)).min(255.0) as u8)
         };
-        let (sky, hills) = moods[(n as usize) % moods.len()];
-        let image = image::RgbaImage::from_fn(960, 540, |x, y| {
-            let (fx, fy) = (x as f32 / 960.0, y as f32 / 540.0);
-            let ridge = 0.62 + 0.10 * (fx * (5.0 + n as f32 * 0.7) + n as f32).sin() + 0.05 * (fx * 17.0).sin();
-            let sun = ((fx - 0.25 - 0.05 * n as f32).powi(2) + (fy - 0.25).powi(2)).sqrt() < 0.06;
-            let colour = if fy > ridge {
-                let shade = 0.75 + 0.25 * (fy - ridge).min(0.4) / 0.4;
-                hills.map(|c| (f32::from(c) * shade) as u8)
-            } else if sun {
-                [250, 240, 200]
-            } else {
-                sky.map(|c| (f32::from(c) * (1.1 - 0.35 * fy)).min(255.0) as u8)
-            };
-            image::Rgba([colour[0], colour[1], colour[2], 255])
-        });
-        let _ = image.save(dir.join(format!("castanea-{at}.png")));
-    }
-    app.gallery.stale = true;
+        image::Rgba([colour[0], colour[1], colour[2], 255])
+    })
+}
+
+/// A world that was played an hour ago, with its own picture: the Continue card shows it.
+fn demo_played(app: &mut App) {
+    let world = app.paths.game().join("saves/world1");
+    let _ = std::fs::create_dir_all(&world);
+    let _ = std::fs::write(world.join("world.meta"), "demo");
+    let _ = demo_picture(2).save(world.join("preview.png"));
+    let now = history::now_ms();
+    let mut record = History::default();
+    let (started, ended) = (now - 100 * 60_000, now - 40 * 60_000);
+    let version = "0.2.0".to_owned();
+    record.record_start(Entry { started, ended: Some(ended), version, start: Start::World("world1".into()) });
+    let _ = record.save(&app.paths);
+    app.quick.stale = true;
 }
 
 const STEPS: [Step; 30] = [
@@ -105,6 +127,7 @@ const STEPS: [Step; 30] = [
         name: "home",
         wait: Wait::Idle,
         setup: |app| {
+            demo_played(app);
             up_to_date(app);
             news(app, Phase::Fresh);
             app.go(Page::Home);

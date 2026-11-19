@@ -12,8 +12,8 @@ web view. This page is the design; the other docs say how the pieces work in det
 - Windows and Linux. Works offline with what is installed and cached.
 - Safe with downloads: HTTPS only, SHA-256 checked, nothing downloaded is executed except the game.
 
-Not goals: macOS, auto-update of the launcher itself, accounts, a mod upload flow, start options such as opening a
-world or joining an address (the game has its own menu for that).
+Not goals: macOS, accounts, a mod upload flow, a world browser or server list of its own (the game has its own menu for
+that; the launcher only offers Continue for the last world or server, [quick-start.md](quick-start.md)).
 
 ## GUI toolkit
 
@@ -50,6 +50,7 @@ crates/core   castanea-launcher-core: no UI, no window, everything testable
   playername  the player name: typed name > OS name > none, tidying, and the 3-16 character form the game accepts (player-name.md)
   osname      the OS account's display name per platform (GetUserNameExW, getpwuid_r GECOS) and its pure parsers
   gallery     the game's screenshots: scan and sort, day groups, thumbnails and their cache, rename, delete, trash (screenshots-gallery.md)
+  history     the record of the starts the launcher made and the last played world or server found from it and the saves (quick-start.md)
   migrate     moves an old home (profiles, side-by-side versions) to the one game folder and the one build, once
   install     the installed build, GameSource and the release API client, local build folders, the update (check, download, swap)
   launch      the launch plan (program, args, working dir, env) as pure data, the running game, its log and crash check
@@ -89,6 +90,7 @@ data/
     logs/latest.log        the last run's output; logs/<stamp>.log for older runs (the last 10 kept)
   backend.json             what the launcher learned about the graphics backend: probe results, Vulkan starts that died, the last start
   window/                  eframe's window state (size, position)
+  history.json             the last 100 starts: when, the version, and where (menu, world, server); for the Continue card
   launcher-update/         the launcher's own update: staged/ (unpacked new launcher), staged.json, update-pending (the rollback marker), skip.json (versions that failed to start)
 config/
   launcher.json
@@ -272,7 +274,7 @@ size and its own Delete button (`crates/core/src/storage.rs`, the page in `crate
 | Game | `data/build/` (`current`; `next` or `previous` only during an update or left by one that stopped, removed at the next start) and the link `data/game/assets` | yes |
 | Mods | `data/game/mods/` (enabled and `.disabled`) | yes |
 | Logs | `data/game/logs/` (`latest.log` and the older stamped ones) | yes |
-| Launcher settings | everything in `config/` (`launcher.json`, a leftover `github-token`, old `profiles.json`) and `data/window/` (the window state) | yes |
+| Launcher settings | everything in `config/` (`launcher.json`, a leftover `github-token`, old `profiles.json`), `data/window/` (the window state) and `data/history.json` (the record of starts) | yes |
 | Game data (worlds, game settings) | what the game wrote in `data/game/` itself: `saves/`, `screenshots/`, `settings.json`, `crash/`, `debug/`. Listed only when the game folder exists | **never** (typed `DELETE`) |
 
 The launcher makes nothing else: no temp folders (an archive unpacks to a sibling `.unpacking` folder that a failure removes),

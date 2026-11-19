@@ -88,3 +88,13 @@ The launcher passes `--name <name>` when it has a name: the one typed in Setting
 in the form the game accepts (3 to 16 ASCII letters, digits or `_`). The rules, the per-platform reading of the OS name and
 the privacy notes are in [player-name.md](player-name.md). The game reads `--name` for a join; the start screen and a
 world ignore it, so the name only reaches the game's own default if the game learns to use it there.
+
+## Starting into a world or onto a server
+
+Play starts the game with `--menu` (the start screen). The Continue card of the home page ([quick-start.md](quick-start.md))
+starts it straight in instead: `--world NAME` for a saved world (the folder name in `saves/`), `--join HOST:PORT` or
+`--join CODE` for a server. These come first, then `--name NAME` when there is a player name, then the extra arguments, which
+can still name a world or a server themselves (a start at the start screen with `--world x` in the extra arguments goes into
+`x` and is remembered as that). A world name or an address that is not plain (white space, or one that starts with `-`) is
+refused by the launcher before the game is started. `CASTANEA_NO_MENU` is not used. After each successful start the
+launcher writes the start (when, version, target) to `data/history.json`, and the end when it sees the game end.

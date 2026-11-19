@@ -37,6 +37,17 @@ pub struct Shot {
     pub modified_ms: i64,
 }
 
+impl Shot {
+    /// A picture outside the screenshots folder (a world's own picture), from its file's metadata.
+    pub fn from_file(path: &Path) -> Option<Self> {
+        let meta = fs::metadata(path).ok().filter(|m| m.is_file())?;
+        let name = path.file_name()?.to_string_lossy().into_owned();
+        let modified_ms = meta.modified().map_or(0, millis);
+        let taken_ms = taken_from_name(&name).unwrap_or(modified_ms);
+        Some(Self { path: path.to_path_buf(), name, taken_ms, size: meta.len(), modified_ms })
+    }
+}
+
 /// The result of one scan.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Scan {

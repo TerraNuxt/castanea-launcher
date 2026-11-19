@@ -8,6 +8,7 @@ use castanea_launcher_core::backend::Choice;
 use castanea_launcher_core::download::Speed;
 use castanea_launcher_core::gallery::Scan;
 use castanea_launcher_core::gallery::thumb::Pixels;
+use castanea_launcher_core::history::Played;
 use castanea_launcher_core::index::Index;
 use castanea_launcher_core::install::Build;
 use castanea_launcher_core::install::update::Check;
@@ -47,6 +48,8 @@ pub enum Done {
         lang: String,
         result: Result<Vec<castanea_launcher_core::news::Item>, String>,
     },
+    /// What was played last, found from the record of starts and the saves.
+    LastPlayed(Option<Played>),
     /// The screenshots folder scanned.
     ShotsScanned(Scan),
     /// A screenshot decoded at its real size, for the clipboard.

@@ -409,6 +409,9 @@ impl App {
     /// Nothing is on its way for the page that is open: the thumbnails of its first screenful (and the large view) are
     /// decoded or failed. Screenshots of the launcher and the idle tests wait for it.
     pub fn gallery_settled(&mut self) -> bool {
+        if self.page == Page::Home {
+            return self.card_settled();
+        }
         if self.page != Page::Screenshots {
             return true;
         }

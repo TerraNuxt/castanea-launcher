@@ -38,7 +38,7 @@ fn inside(inner: Rect, outer: Rect) -> bool {
     outer.expand(0.5).contains_rect(inner)
 }
 
-fn disjoint(context: &str, regions: &[(String, Rect)]) {
+pub(super) fn disjoint(context: &str, regions: &[(String, Rect)]) {
     for (i, (a, ra)) in regions.iter().enumerate() {
         for (b, rb) in &regions[i + 1..] {
             assert!(overlap(*ra, *rb) < 1.0, "{context}: {a} {ra:?} overlaps {b} {rb:?}");
@@ -46,7 +46,7 @@ fn disjoint(context: &str, regions: &[(String, Rect)]) {
     }
 }
 
-fn all_inside(context: &str, regions: &[(String, Rect)], outer: Rect) {
+pub(super) fn all_inside(context: &str, regions: &[(String, Rect)], outer: Rect) {
     for (name, rect) in regions {
         assert!(inside(*rect, outer), "{context}: {name} {rect:?} leaves {outer:?}");
     }

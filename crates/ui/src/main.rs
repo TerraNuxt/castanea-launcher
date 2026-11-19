@@ -12,6 +12,7 @@ mod launcher;
 mod news;
 mod pages;
 mod probe;
+mod quick;
 mod scene;
 mod screenshots;
 mod shell;

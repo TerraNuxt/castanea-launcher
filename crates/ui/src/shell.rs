@@ -19,6 +19,8 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui) {
     app.collect_jobs(&ctx);
     app.auto_news(&ctx);
     app.auto_gallery(&ctx);
+    app.auto_last_played(&ctx);
+    app.refresh_card_picture();
     app.collect_thumbs(&ctx);
     app.auto_check_launcher(&ctx);
     app.poll_session(&ctx);

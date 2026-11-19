@@ -33,7 +33,7 @@ pub enum Row {
     Mods,
     /// The game's output logs.
     Logs,
-    /// `launcher.json` and the window state.
+    /// `launcher.json`, the window state and the record of starts (`history.json`).
     Settings,
     /// What the game wrote itself: worlds, its settings, crash reports. Never part of a bulk action.
     GameData,
@@ -73,6 +73,7 @@ pub fn targets(paths: &Paths, row: Row) -> Vec<PathBuf> {
         Row::Settings => {
             let mut all = children(&paths.config);
             all.push(paths.data.join("window"));
+            all.push(paths.history_file());
             all
         }
         Row::GameData => children(&game)

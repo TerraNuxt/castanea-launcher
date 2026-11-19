@@ -10,6 +10,7 @@ mod name;
 mod news;
 #[cfg(unix)]
 mod on_start;
+mod quick;
 mod storage;
 
 use std::fs;

@@ -20,6 +20,7 @@ newest release (checked, downloaded and verified at start), starts it, and is a 
 - **Play**: the name and a small `Hello, <name>`, one Play button (F5) and one status line: the installed version and whether it is up to date,
   an update downloading with its percentage, or offline. While the game runs the button is Stop with the running time.
   There are no profiles and no version choice: one game install, one game folder, always the newest release.
+- **Continue**: when something was played, a card under Play with the last world or server, its picture, when and with which version; one click starts the game straight in (`--world` or `--join`), Play still opens the start screen. Found from the launcher's own record of its starts and the saves, read-only ([docs/quick-start.md](docs/quick-start.md)).
 - **Updates**: at start the launcher asks the release server (`https://castanea.xenoo.dev`, [contract](docs/release-api.md))
   for the newest build for this platform (`stable`, or also `beta` with Settings → Advanced → Include beta builds), downloads
   it (a dropped connection or a restart continues the partial file), checks its SHA-256 and its Ed25519 signature
@@ -82,7 +83,7 @@ release, for one run. `CASTANEA_RELEASE_URL=<url>` points the launcher at anothe
 
 | Path | What |
 |---|---|
-| `crates/core` | Everything without UI: folders, settings, the build and its updates, migration, launch, the graphics backend choice ([docs/game-launch.md](docs/game-launch.md)), the player name, the screenshot gallery, mods, index, downloads |
+| `crates/core` | Everything without UI: folders, settings, the build and its updates, migration, launch, the graphics backend choice ([docs/game-launch.md](docs/game-launch.md)), the player name, the screenshot gallery, the last played, mods, index, downloads |
 | `crates/ui` | The window (eframe): `app.rs` state, `game.rs` updates and the running game, `shell.rs` layout, `sidebar.rs`, `pages/` one file per page, `widgets/` components, `theme.rs` tokens, `lang/` strings, `assets/fonts` |
 | `docs/` | Design, UI design, mod index format, packaging, Nix, Windows notes, screenshots, an example index |
 | `third_party/` | Licences and sources of the foreign fonts (Inter, Phosphor); the own brand font has its note beside it |

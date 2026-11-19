@@ -94,6 +94,11 @@ impl Paths {
         self.game().join(crate::gallery::DIR)
     }
 
+    /// The launcher's record of the starts it made (docs/quick-start.md).
+    pub fn history_file(&self) -> PathBuf {
+        self.data.join("history.json")
+    }
+
     /// The gallery's thumbnail cache.
     pub fn thumbnails(&self) -> PathBuf {
         self.cache.join("thumbnails")

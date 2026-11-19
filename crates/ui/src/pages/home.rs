@@ -5,6 +5,8 @@
 use castanea_launcher_core::download::rate_text;
 use eframe::egui::{self, Sense};
 
+pub mod card;
+
 use super::news_column;
 use crate::app::{App, Page};
 use crate::game::{Update, clock};
@@ -57,7 +59,7 @@ fn beside(app: &mut App, ui: &mut egui::Ui, area: egui::Rect) {
 
 /// Narrow window: the Play block over the scene stays on top, a hairline, the news and the notes scroll below it.
 fn below(app: &mut App, ui: &mut egui::Ui, area: egui::Rect) {
-    let hero = egui::Rect::from_min_size(area.min, egui::vec2(area.width(), layout::HERO_NARROW));
+    let hero = egui::Rect::from_min_size(area.min, egui::vec2(area.width(), layout::HERO_NARROW + card::height(app)));
     let divider = hero.bottom() + space::M;
     let page = area.expand2(egui::vec2(layout::PAGE_MARGIN, layout::PAGE_MARGIN_TOP));
     let scene = egui::Rect::from_min_max(page.min, egui::pos2(page.right(), divider));
@@ -87,7 +89,7 @@ fn notes_height(app: &App) -> f32 {
 
 /// The name, Play and the status, a little above the middle of a `height` tall area.
 fn play_block(app: &mut App, ui: &mut egui::Ui, height: f32) {
-    let top = ((height - BLOCK) * layout::HOME_RISE).max(0.0);
+    let top = ((height - BLOCK - card::height(app)) * layout::HOME_RISE).max(0.0);
     ui.add_space(top);
     ui.vertical_centered(|ui| {
         let name = crate::bmfont::bm_label(ui, "castanea", size::BRAND);
@@ -109,6 +111,10 @@ fn play_block(app: &mut App, ui: &mut egui::Ui, height: f32) {
             probe::mark(ui.ctx(), "home:hello", hello.rect);
         }
         links(app, ui);
+        if app.card_visible() {
+            ui.add_space(space::XL);
+            card::show(app, ui);
+        }
     });
 }
 

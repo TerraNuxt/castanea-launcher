@@ -40,6 +40,12 @@ this order, F5 plays, Ctrl+F searches mods, Esc closes a question or leaves the 
                  castanea 0.2.0  ·  up to date                    12 pt muted, one line
                           Hello, Anna                             12 pt muted, the name in use (docs/player-name.md)
                               Game output                    a quiet link once the game has run; the release notes are in the news column below
+
+                   +--------------------------------------+
+                   | [picture]  Continue                  |     300 x 64 plate, only after something was played
+                   |            world1                    |     the picture: newest screenshot of that session,
+                   |            World · 40 min ago · 0.2.0|     else the world's own picture, else a placeholder
+                   +--------------------------------------+
 ```
 
 The block sits a little above the middle of the page. The status line says one of:
@@ -55,6 +61,12 @@ The block sits a little above the middle of the page. The status line says one o
 | local build folder | `Local build 0.9.0-dev` |
 | nothing installed, no release | `No game release is published yet. Check again later.` |
 | no build for this system | `There is no game build for this system yet.` (the reason as tooltip) |
+
+The Continue card ([quick-start.md](quick-start.md)) is a RAISED plate with a hairline outline under the links: a 96 x 54
+picture, `Continue` in the accent colour, the world or server name in semibold and `World · 2 h ago · 0.2.0` muted; it
+brightens under the pointer and has a focus ring. One click starts the game straight in. It is not shown while the game
+runs or when nothing was played. In the narrow layout the Play block grows by the card's height and the news below it get
+what is left (they scroll). The card is a button for screen readers: `Continue: world1, World · 40 min ago · 0.2.0`.
 
 While the game runs the button is Stop (a secondary button: hairline outline, no fill) with the running time in a
 fixed-width slot after the label, so the label does not move as the seconds change.

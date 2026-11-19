@@ -119,6 +119,8 @@ pub mod layout {
     pub const NEWS_MIN: f32 = 280.0;
     pub const NEWS_MAX: f32 = 380.0;
     /// The height of the Play block's area when the news sits below it.
+    /// The Continue card of the home page: width and height.
+    pub const CONTINUE: [f32; 2] = [300.0, 64.0];
     pub const HERO_NARROW: f32 = 280.0;
     pub const DIALOG: f32 = 440.0;
     /// The tallest list in a question before it scrolls.

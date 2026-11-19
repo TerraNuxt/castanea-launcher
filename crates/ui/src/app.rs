@@ -183,6 +183,10 @@ pub struct App {
     pub news: NewsState,
     pub storage: StorageState,
     pub gallery: crate::gallery::GalleryState,
+    /// What was played last, for the Continue card.
+    pub quick: crate::quick::QuickState,
+    /// Where the start that waits for the graphics backend goes.
+    pub pending_start: castanea_launcher_core::launch::Start,
 }
 
 impl App {
@@ -240,6 +244,8 @@ impl App {
             news: NewsState::default(),
             storage: StorageState::default(),
             gallery: crate::gallery::GalleryState::default(),
+            quick: crate::quick::QuickState::default(),
+            pending_start: castanea_launcher_core::launch::Start::default(),
         };
         app.load_news_cache();
         for error in errors {
@@ -377,6 +383,7 @@ impl App {
                 }
                 Done::News { lang, result } => self.on_news(lang, result),
                 Done::ShotsScanned(scan) => self.on_shots_scanned(scan),
+                Done::LastPlayed(played) => self.on_last_played(played),
                 Done::ShotPixels(result) => self.on_shot_pixels(ctx, result),
                 Done::StorageSize { row, info } => self.on_storage_info(row, info),
                 Done::StorageDeleted { what, result } => self.on_storage_deleted(ctx, what, result),

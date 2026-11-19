@@ -9,7 +9,7 @@ use std::time::Instant;
 use castanea_launcher_core::backend::{self, Choice, Verdict};
 use castanea_launcher_core::install::update::{self, Check};
 use castanea_launcher_core::install::{Build, Platform, Release, ReleaseApi, local, notes};
-use castanea_launcher_core::launch::{self, Outcome, Running};
+use castanea_launcher_core::launch::{self, Outcome, Running, Start};
 use castanea_launcher_core::playername;
 use castanea_launcher_core::settings::OnGameStart;
 use eframe::egui;
@@ -66,6 +66,8 @@ pub struct Session {
     pub started: Instant,
     /// The backend choice this start was made with.
     pub choice: Choice,
+    /// Key of this start in the launcher's record of starts; none for a game found already running.
+    pub started_ms: Option<i64>,
 }
 
 /// `4:05` or `1:02:03`.
@@ -235,13 +237,20 @@ impl App {
             && !self.starting
     }
 
-    /// Starts the game: first decides the graphics backend on a worker (the probe may run), then `on_backend` starts it.
+    /// Starts the game at its start screen: first decides the graphics backend on a worker (the probe may run), then
+    /// `on_backend` starts it.
     pub fn play(&mut self, ctx: &egui::Context) {
+        self.play_with(ctx, Start::Menu);
+    }
+
+    /// `play`, but into the world or onto the server `start` names.
+    pub fn play_with(&mut self, ctx: &egui::Context, start: Start) {
         if self.is_running() || !self.can_play() {
             return;
         }
         let Some(build) = self.installed.clone() else { return };
         self.starting = true;
+        self.pending_start = start;
         let (paths, options) = (self.paths.clone(), self.game_options());
         self.jobs.spawn(ctx, move || {
             let gpu = backend::gpu::system_key();
@@ -253,10 +262,15 @@ impl App {
 
     /// `play` without the worker, for screenshots and tests that have no window to wait on.
     pub fn play_blocking(&mut self) {
+        self.play_blocking_with(Start::Menu);
+    }
+
+    pub fn play_blocking_with(&mut self, start: Start) {
         if self.is_running() || !self.can_play() {
             return;
         }
         let Some(build) = self.installed.clone() else { return };
+        self.pending_start = start;
         let gpu = backend::gpu::system_key();
         let result = backend::choose(&self.paths, &build, &self.game_options(), &gpu, backend::PROBE_TIMEOUT);
         self.on_backend(result.map_err(|e| e.to_string()));
@@ -275,8 +289,10 @@ impl App {
         let Some(build) = self.installed.clone() else { return };
         let mut options = self.game_options();
         options.graphics = choice.graphics;
-        match launch::launch(&self.paths, &build, &options, self.settings.log_lines) {
+        let start = std::mem::take(&mut self.pending_start);
+        match launch::launch_at(&self.paths, &build, &options, &start, self.settings.log_lines) {
             Ok((plan, running)) => {
+                let started_ms = self.record_game_start(&start, &build.version);
                 self.session = Some(Session {
                     command: plan.display(),
                     running: Some(running),
@@ -285,6 +301,7 @@ impl App {
                     outcome: None,
                     started: Instant::now(),
                     choice,
+                    started_ms,
                 });
                 self.start_action_due = true;
             }
@@ -313,6 +330,7 @@ impl App {
             outcome: None,
             started: Instant::now(),
             choice,
+            started_ms: None,
         });
         let text = self.tr.get("notes.game_still_running").to_owned();
         self.info(text);
@@ -332,6 +350,7 @@ impl App {
             }
             Err(error) => self.error(error.to_string()),
         }
+        self.record_game_end();
     }
 
     /// The hint for a game that could not load a library (exit 127 or a loader error), in the language of the UI.
@@ -398,6 +417,7 @@ impl App {
             Ok(_) => {}
             Err(error) => self.error(error),
         }
+        self.record_game_end();
         self.restore_after_game(ctx);
         if let Update::Ready { version } = &self.update {
             let version = version.clone();
