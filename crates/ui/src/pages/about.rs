@@ -12,7 +12,7 @@ use crate::widgets::{self, Button, Kind, setting_row};
 
 pub fn ui(app: &mut App, ui: &mut egui::Ui) {
     egui::ScrollArea::vertical().id_salt("about").auto_shrink([false, false]).show(ui, |ui| {
-        ui.set_max_width(layout::READABLE);
+        ui.set_max_width(layout::READABLE.min(ui.available_width()));
         let top = ui.cursor().top();
         crate::bmfont::bm_label(ui, "castanea launcher", size::HEADING);
         ui.add_space(space::XS);

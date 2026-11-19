@@ -17,7 +17,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui) {
     let title = app.tr.get("nav.settings").to_owned();
     widgets::page_header(ui, &title, |_| {});
     egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-        ui.set_max_width(layout::READABLE);
+        ui.set_max_width(layout::READABLE.min(ui.available_width()));
         group(ui, "settings:general", |ui| general(app, ui));
         group(ui, "settings:game", |ui| game(app, ui));
         group(ui, "settings:indexes", |ui| indexes(app, ui));
@@ -227,7 +227,9 @@ fn indexes(app: &mut App, ui: &mut egui::Ui) {
     ui.add_space(space::M);
     ui.horizontal(|ui| {
         let add = app.tr.get("common.add").to_owned();
-        widgets::text_field(ui, &mut app.new_index, "https://…/index.json", layout::FIELD + layout::LABEL / 2.0);
+        // The field takes what the two buttons leave, so the row fits the smallest window.
+        let field = (ui.available_width() - 290.0).clamp(120.0, layout::FIELD + layout::LABEL / 2.0);
+        widgets::text_field(ui, &mut app.new_index, "https://…/index.json", field);
         let text = app.new_index.trim().to_owned();
         if Button::new(Kind::Secondary, &add).enabled(!text.is_empty()).show(ui).clicked() {
             if text.starts_with("http://") {

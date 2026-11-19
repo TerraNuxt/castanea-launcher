@@ -51,7 +51,8 @@ Please try these on a Windows PC and report what fails:
     buttons (refresh, trash) and the switches by name (AccessKit).
 12. A path with spaces and non-ASCII letters for `CASTANEA_LAUNCHER_HOME` and for the local build folder.
 13. HiDPI: at 125 %, 150 % and 200 % display scaling the text and icons are sharp, the hairlines stay 1 px, nothing
-    overlaps; the window cannot be made smaller than 1000x640.
+    overlaps; the window cannot be made smaller than 880x500, and the first start fits the screen (see item 13a).
+13a. The first start (delete `%LOCALAPPDATA%\castanea-launcher\window` first) opens centred with its whole frame on the screen, also at 1920x1080 and 150 % or 175 %; a window size remembered from an older launcher that is taller than the screen is brought back.
 14. An old launcher home with profiles (from before this version): the first start keeps the last used profile's
     saves and options, says where the other profile folders stayed, and the old `data\versions` builds are gone.
 15. The start screen: with a player name set, Play opens the game's start screen (world list), not a world. The Game output

@@ -128,7 +128,8 @@ pub mod layout {
     pub const IMAGE: f32 = 48.0;
     pub const SCREENSHOT: f32 = 220.0;
     pub const LOG_ROW: f32 = 16.0;
-    pub const MIN_WINDOW: [f32; 2] = [1000.0, 640.0];
+    /// The smallest window the layout supports: the pages scroll or compact (narrow home) below their usual size.
+    pub const MIN_WINDOW: [f32; 2] = [880.0, 500.0];
     pub const START_WINDOW: [f32; 2] = [1100.0, 700.0];
 }
 

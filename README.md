@@ -52,7 +52,7 @@ newest release (checked, downloaded and verified at start), starts it, and is a 
   ([contract](docs/game-launch.md)).
 - English and German (`crates/ui/lang/*.json`), a matte dark theme, keyboard shortcuts (Ctrl+1…5, F5, Ctrl+F, Tab,
   Enter, Esc), screen reader names for every control (AccessKit), the system window frame, window size and position
-  remembered, from 1000x640 up.
+  remembered, from 880x500 up; the first start picks its size from the monitor and its scale ([window sizing](docs/ui-design.md#window-size)).
 
 An older launcher home with profiles is moved over once: the last used profile's options and game folder are kept,
 the other profile folders stay where they are.

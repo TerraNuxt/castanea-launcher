@@ -326,7 +326,7 @@ Spacing `space::{XS 4, S 8, M 12, L 16, XL 24, XXL 32}`; radius `radius::{M 5, S
 `size::{SMALL 12, BODY 14, TITLE 18}` in Inter regular and semibold (the log and the command line use the monospace
 font at 12) and `size::{BRAND 52, HEADING 30, BRAND_BUTTON 28}` as line heights of the brand font; icons 16; lines `line::{HAIRLINE 1, FOCUS 1.5, PROGRESS 2}`; durations
 `anim::{HOVER 0.12, TOAST 6 s, TOAST_ERROR 10 s}`; layout `layout::{SIDEBAR 184, CONTROL 32, PLAY 240x48, READABLE
-720, LABEL 220, FIELD 320, LIST 320, NARROW 720, MIN 1000x640}`.
+720, LABEL 220, FIELD 320, LIST 320, NARROW 720, MIN 880x500}`.
 
 ## Performance rules
 
@@ -334,3 +334,25 @@ font at 12) and `size::{BRAND 52, HEADING 30, BRAND_BUTTON 28}` as line heights 
   while moving; there are no other animations. A toast asks for one repaint when it expires; a running game or a job
   repaints at 4 Hz (the log, the progress, the running time).
 - A test checks that an idle frame asks for no repaint, on every page.
+
+## Window size
+
+The launcher opens at 1100x700 points and remembers the size and position the user leaves it with. eframe knows the whole
+monitor, not its work area, so the first start (no remembered window) takes the monitor's logical size (pixels divided by
+the scale) and uses at most 92 % of its width and 80 % of its height; the rest is room for the task bar and the title bar.
+It never goes below the smallest size the layout supports, 880x500. Then the window is centred (only on the monitor at the
+origin, where eframe can do it). A remembered window taller than 90 % or wider than 98 % of the monitor (the 1115x737 of
+the Windows test on a 1080p screen at 150 %) is brought back to that size once at start. `ui/window.rs` holds this as pure
+functions over (monitor pixels, scale), tested for 1080p at 100, 125, 150 and 175 %, 1366x768, 4K at 200 % and a screen below
+the minimum:
+
+| Screen | Scale | Start size |
+|---|---|---|
+| 1920x1080 | 100 % | 1100x700 |
+| 1920x1080 | 125 % | 1100x691 |
+| 1920x1080 | 150 % | 1100x576 |
+| 1920x1080 | 175 % | 1009x500 |
+| 1366x768 | 100 % | 1100x614 |
+
+Below its usual size the layout compacts instead of overflowing: the home page puts the news under the Play block (below 970
+wide), the pages of rows (Settings, About) take the window's width, the index field shrinks, and every page scrolls.

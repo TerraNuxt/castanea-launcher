@@ -18,6 +18,7 @@ mod sidebar;
 mod storage;
 mod theme;
 mod widgets;
+mod window;
 
 #[cfg(test)]
 mod tests;
@@ -40,6 +41,8 @@ CASTANEA_GAME_DIR is the same as --game-dir.";
 struct Launcher {
     app: app::App,
     shots: Option<screenshots::Shots>,
+    /// Sizes and centres the window at the first frames; none for screenshots.
+    placer: Option<window::Placer>,
 }
 
 impl eframe::App for Launcher {
@@ -52,6 +55,9 @@ impl eframe::App for Launcher {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        if let Some(placer) = &mut self.placer {
+            placer.tick(ui.ctx());
+        }
         shell::ui(&mut self.app, ui);
         self.app.frame_drawn();
         if let Some(shots) = &mut self.shots {
@@ -102,6 +108,8 @@ fn main() -> std::process::ExitCode {
         return std::process::ExitCode::FAILURE;
     };
     let screenshot_mode = shots_dir.is_some();
+    // No remembered window yet: this is a first start, which gets a size that fits the monitor.
+    let first_run = !paths.data.join("window").exists();
     // Screenshots never touch the installed launcher.
     let layout = if screenshot_mode { None } else { Layout::detect() };
     // Before anything downloads: an update that stopped left `next` or `previous` behind.
@@ -125,6 +133,7 @@ fn main() -> std::process::ExitCode {
     let viewport = egui::ViewportBuilder::default()
         .with_title("castanea")
         .with_inner_size(theme::layout::START_WINDOW)
+        .with_clamp_size_to_monitor_size(true)
         .with_app_id("castanea-launcher");
     // Screenshots may ask for a window below the minimum, to show the narrow layout.
     let viewport = if screenshot_mode { viewport } else { viewport.with_min_inner_size(theme::layout::MIN_WINDOW) };
@@ -152,7 +161,8 @@ fn main() -> std::process::ExitCode {
             let mut app = app::App::new(paths, game_dir);
             app.launcher_layout = layout;
             app.auto_check = shots.is_none();
-            Ok(Box::new(Launcher { app, shots }))
+            let placer = (!screenshot_mode).then(|| window::Placer::new(first_run));
+            Ok(Box::new(Launcher { app, shots, placer }))
         }),
     );
     if let Err(error) = result {
