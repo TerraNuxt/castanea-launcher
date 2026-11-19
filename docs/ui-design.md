@@ -38,6 +38,7 @@ this order, F5 plays, Ctrl+F searches mods, Esc closes a question or leaves the 
                           +------------------------+
                           ======------------------                2 px progress, only while downloading
                  castanea 0.2.0  ·  up to date                    12 pt muted, one line
+                          Hello, Anna                             12 pt muted, the name in use (docs/player-name.md)
                               Game output                    a quiet link once the game has run; the release notes are in the news column below
 ```
 
@@ -172,6 +173,7 @@ a hairline under each row.
  Game
  ------------------------------------------------------------------
  Player name                      [Anna                  ]
+                                  In the game: Anna      (muted line: what the game gets)
  Window size                      [1280x720              ]
  Extra arguments                  [                      ]
  Environment                      [NAME     ] [value    ] (x)   [Add variable]

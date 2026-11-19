@@ -83,7 +83,7 @@ fn the_frame_and_the_home_page_hold_together() {
                 disjoint(&context, &nav);
 
                 let content = shot.get("content");
-                let home = named(&shot, &["home:wordmark", "home:play", "home:status", "home:links"]);
+                let home = named(&shot, &["home:wordmark", "home:play", "home:status", "home:hello", "home:links"]);
                 assert!(home.len() >= 3, "{context}: {:?}", shot.names());
                 all_inside(&context, &home, content);
                 disjoint(&context, &home);

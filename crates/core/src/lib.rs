@@ -12,7 +12,9 @@ pub mod launch;
 pub mod migrate;
 pub mod mods;
 pub mod news;
+pub mod osname;
 pub mod paths;
+pub mod playername;
 pub mod selfupdate;
 pub mod settings;
 pub mod signature;
@@ -22,6 +24,8 @@ pub mod version;
 
 pub use error::{Error, NOT_SIGNED, Result};
 
+#[cfg(test)]
+mod privacy_tests;
 #[cfg(test)]
 mod release_server;
 #[cfg(test)]

@@ -257,6 +257,9 @@
   "storage.shortcuts": "Verknüpfungen",
   "storage.program": "Launcher-Programm",
   "storage.dir_owned": "Sein Ordner {path} wird entfernt, wenn er leer ist.",
-  "storage.dir_shared": "{path} enthält andere Dateien, darum wird nur das Launcher-Programm entfernt, nicht der Ordner."
-
+  "storage.dir_shared": "{path} enthält andere Dateien, darum wird nur das Launcher-Programm entfernt, nicht der Ordner.",
+  "settings.player_hint": "Leer nimmt den Namen deines Computerkontos. Das Spiel erlaubt Buchstaben, Ziffern und _ (3 bis 16).",
+  "settings.player_in_game": "Im Spiel: {name}",
+  "settings.player_none": "Das Spiel wählt selbst einen Namen.",
+  "home.hello": "Hallo, {name}"
 }

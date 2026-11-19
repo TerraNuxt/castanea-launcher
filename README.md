@@ -16,7 +16,7 @@ newest release (checked, downloaded and verified at start), starts it, and is a 
 
 ## What it does
 
-- **Play**: the name, one Play button (F5) and one status line: the installed version and whether it is up to date,
+- **Play**: the name and a small `Hello, <name>`, one Play button (F5) and one status line: the installed version and whether it is up to date,
   an update downloading with its percentage, or offline. While the game runs the button is Stop with the running time.
   There are no profiles and no version choice: one game install, one game folder, always the newest release.
 - **Updates**: at start the launcher asks the release server (`https://castanea.xenoo.dev`, [contract](docs/release-api.md))
@@ -37,7 +37,7 @@ newest release (checked, downloaded and verified at start), starts it, and is a 
   check, updates. Works offline from the cache.
 - **Game output**: the live output, also in `logs/latest.log` of the game folder; a crash (exit code or a new report
   in `crash/`) is shown with its report.
-- **Settings**: language, offline mode; the game's player name, window size, extra arguments and environment; mod
+- **Settings**: language, offline mode; the game's player name (the OS account's name until you type one, [player-name.md](docs/player-name.md)), window size, extra arguments and environment; mod
   indexes; under Advanced the graphics backend (Auto, Vulkan or wgpu), a local build folder for people who build the game
   from source, the release server address, beta builds, a developer-only switch for unsigned game builds (ignored by
   release builds), and the folders.

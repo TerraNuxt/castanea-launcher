@@ -81,3 +81,10 @@ the probe reported. `<data>/backend.json` has the same in `last`. The launcher n
 `crates/core/src/backend/tests.rs` runs the choice against a fake game (a shell script, unix only): probe ok, Vulkan fails, both
 fail, no probe (no flag in the binary, exit code 2), a probe that hangs, a probe killed by a signal, the cache per version and GPU
 and its expiry, a forced setting, and a Vulkan start that dies at once and the wgpu start after it.
+
+## The player name
+
+The launcher passes `--name <name>` when it has a name: the one typed in Settings, else the OS account's display name,
+in the form the game accepts (3 to 16 ASCII letters, digits or `_`). The rules, the per-platform reading of the OS name and
+the privacy notes are in [player-name.md](player-name.md). The game reads `--name` for a join; the start screen and a
+world ignore it, so the name only reaches the game's own default if the game learns to use it there.

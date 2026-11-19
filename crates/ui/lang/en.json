@@ -257,6 +257,9 @@
   "storage.shortcuts": "Shortcuts",
   "storage.program": "Launcher program",
   "storage.dir_owned": "Its folder {path} is removed when it is empty.",
-  "storage.dir_shared": "{path} holds other files, so only the launcher program is removed, not the folder."
-
+  "storage.dir_shared": "{path} holds other files, so only the launcher program is removed, not the folder.",
+  "settings.player_hint": "Empty uses your computer account's name. The game accepts letters, digits and _ (3 to 16).",
+  "settings.player_in_game": "In the game: {name}",
+  "settings.player_none": "The game picks its own name.",
+  "home.hello": "Hello, {name}"
 }

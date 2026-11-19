@@ -5,6 +5,7 @@
 mod brand;
 mod launcher;
 mod layout;
+mod name;
 mod news;
 #[cfg(unix)]
 mod on_start;

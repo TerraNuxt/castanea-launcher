@@ -54,7 +54,7 @@ impl OnGameStart {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GameOptions {
-    /// The player name (`--name`).
+    /// The player name the user chose (`--name`); empty means the OS account's name (docs/player-name.md).
     pub player_name: String,
     pub graphics: Graphics,
     /// `CASTANEA_WINDOW`, such as `1280x720`; empty for the game's default.
@@ -62,6 +62,14 @@ pub struct GameOptions {
     /// More arguments, split like a shell does (quotes group words).
     pub extra_args: String,
     pub env: Vec<(String, String)>,
+}
+
+impl GameOptions {
+    /// These options with the name the game gets: the typed one, else the OS account's (`playername::resolve`).
+    pub fn with_default_name(&self, system: Option<&str>) -> Self {
+        let name = crate::playername::resolve(&self.player_name, system).map(|n| n.shown).unwrap_or_default();
+        Self { player_name: name, ..self.clone() }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -158,6 +166,32 @@ mod tests {
         assert_eq!(named.on_game_start, OnGameStart::KeepOpen);
         let close: Settings = serde_json::from_str(r#"{"on_game_start": "close"}"#).unwrap();
         assert_eq!(close.on_game_start, OnGameStart::Close);
+    }
+
+    #[test]
+    fn the_player_name_is_the_users_until_cleared_then_the_os_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::portable(dir.path());
+        let mut settings = Settings::default();
+        assert!(settings.game.player_name.is_empty(), "unset by default: the OS name is used");
+        assert_eq!(settings.game.with_default_name(Some("Eva Schmidt")).player_name, "Eva Schmidt");
+        assert_eq!(settings.game.with_default_name(None).player_name, "");
+        settings.game.player_name = "  Anna ".to_owned();
+        settings.save(&paths).unwrap();
+        let loaded = Settings::load(&paths).unwrap();
+        assert_eq!(loaded.game.with_default_name(Some("Eva Schmidt")).player_name, "Anna", "the typed name wins");
+        assert_eq!(
+            loaded.game.with_default_name(Some("Eva Neu")).player_name,
+            "Anna",
+            "and stays when the OS name changes"
+        );
+        let mut cleared = loaded;
+        cleared.game.player_name.clear();
+        assert_eq!(cleared.game.with_default_name(Some("Eva Neu")).player_name, "Eva Neu");
+        assert!(
+            !std::fs::read_to_string(paths.settings_file()).unwrap().contains("Eva"),
+            "the OS name is never stored"
+        );
     }
 
     #[test]

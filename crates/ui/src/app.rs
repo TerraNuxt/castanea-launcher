@@ -116,6 +116,8 @@ pub enum ImageState {
 pub struct App {
     pub paths: Paths,
     pub settings: Settings,
+    /// The OS account's display name, the default player name until one is typed. Kept in memory only.
+    pub os_name: Option<String>,
     pub tr: Strings,
     pub page: Page,
     pub mods_view: ModsView,
@@ -187,6 +189,7 @@ impl App {
             tr: Strings::load(&settings.language),
             paths,
             settings,
+            os_name: castanea_launcher_core::osname::detect(),
             page: Page::Home,
             mods_view: ModsView::Installed,
             installed: None,

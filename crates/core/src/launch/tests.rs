@@ -52,7 +52,6 @@ fn options_give_name_extra_args_and_environment() {
 #[test]
 fn bad_values_are_refused() {
     let bad = [
-        GameOptions { player_name: "--world".into(), ..GameOptions::default() },
         GameOptions { window: "big".into(), ..GameOptions::default() },
         GameOptions { extra_args: "\"open".into(), ..GameOptions::default() },
         GameOptions { env: vec![("A=B".into(), "c".into())], ..GameOptions::default() },
@@ -60,6 +59,34 @@ fn bad_values_are_refused() {
     for options in bad {
         assert!(plan(&options, &build(Path::new("/g")), "/i".into()).is_err(), "{options:?}");
     }
+}
+
+#[test]
+fn the_player_name_goes_to_the_game_in_the_form_it_accepts() {
+    let name = |typed: &str| {
+        let options = GameOptions { player_name: typed.into(), ..GameOptions::default() };
+        args(&plan(&options, &build(Path::new("/g")), "/i".into()).unwrap()).join(" ")
+    };
+    assert_eq!(name("Jürgen Müller"), "--menu --name Juergen_Mueller");
+    assert_eq!(name("  Anna  "), "--menu --name Anna");
+    assert_eq!(name("--world"), "--menu --name world", "a name never reads as an option");
+    assert_eq!(name("日本語"), "--menu", "nothing usable: the game keeps its own name");
+    assert_eq!(name(""), "--menu");
+}
+
+#[test]
+fn a_continue_start_goes_straight_in_with_the_name_and_extra_arguments_after_it() {
+    let options =
+        GameOptions { player_name: "Anna".into(), extra_args: "--gamemode creative".into(), ..GameOptions::default() };
+    let b = build(Path::new("/g"));
+    let world = plan_for(&options, &b, "/i".into(), &Start::World("lake".into())).unwrap();
+    assert_eq!(args(&world), ["--world", "lake", "--name", "Anna", "--gamemode", "creative"]);
+    let join = plan_for(&options, &b, "/i".into(), &Start::Join("10.0.0.5:47800".into())).unwrap();
+    assert_eq!(args(&join), ["--join", "10.0.0.5:47800", "--name", "Anna", "--gamemode", "creative"]);
+    assert!(plan_for(&options, &b, "/i".into(), &Start::World("../x".into())).is_err());
+    assert!(plan_for(&options, &b, "/i".into(), &Start::Join("--host".into())).is_err());
+    let menu = plan_for(&options, &b, "/i".into(), &Start::Menu).unwrap();
+    assert_eq!(args(&menu), ["--menu", "--name", "Anna", "--gamemode", "creative"]);
 }
 
 #[test]

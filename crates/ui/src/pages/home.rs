@@ -14,7 +14,7 @@ use crate::widgets::{self, Button, Kind};
 use crate::{probe, theme};
 
 /// The block's height for centring: name, gaps, button, progress, status and link lines.
-const BLOCK: f32 = size::BRAND * 0.75 + space::XXL + layout::PLAY[1] + space::L * 2.0 + size::BODY * 3.0;
+const BLOCK: f32 = size::BRAND * 0.75 + space::XXL + layout::PLAY[1] + space::L * 2.0 + size::BODY * 4.0;
 
 pub fn ui(app: &mut App, ui: &mut egui::Ui) {
     let area = ui.available_rect_before_wrap();
@@ -103,6 +103,11 @@ fn play_block(app: &mut App, ui: &mut egui::Ui, height: f32) {
             _ => status,
         };
         probe::mark(ui.ctx(), "home:status", status.rect);
+        if let Some(name) = app.player_name() {
+            ui.add_space(space::XS);
+            let hello = ui.label(widgets::small(app.tr.fill("home.hello", &[("name", &name)])));
+            probe::mark(ui.ctx(), "home:hello", hello.rect);
+        }
         links(app, ui);
     });
 }

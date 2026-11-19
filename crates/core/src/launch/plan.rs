@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use super::start::Start;
 use crate::install::Build;
 use crate::settings::GameOptions;
 use crate::{Error, Result};
@@ -39,15 +40,19 @@ fn starts_directly(extra: &[String]) -> bool {
 /// Builds the plan for `build` with `options`, run in `game_dir`. The game opens its start screen: it does so only for no
 /// arguments or `--menu`, and `--name` is an argument, so `--menu` goes first unless the extra arguments name a world.
 pub fn plan(options: &GameOptions, build: &Build, game_dir: PathBuf) -> Result<Plan> {
-    let mut args = Vec::new();
+    plan_for(options, build, game_dir, &Start::Menu)
+}
+
+/// `plan` for a start that may go straight into a world or onto a server: those arguments come first, the extra
+/// arguments after them. The player name is passed in the form the game accepts (`playername::for_game`).
+pub fn plan_for(options: &GameOptions, build: &Build, game_dir: PathBuf, start: &Start) -> Result<Plan> {
     let extra = split_args(&options.extra_args)?;
-    if !starts_directly(&extra) {
-        args.push("--menu".to_owned());
-    }
-    let player = options.player_name.trim();
-    if !player.is_empty() {
-        check_word("player name", player)?;
-        args.extend(["--name".to_owned(), player.to_owned()]);
+    let mut args = match start {
+        Start::Menu if starts_directly(&extra) => Vec::new(),
+        other => other.args()?,
+    };
+    if let Some(player) = crate::playername::for_game(&options.player_name) {
+        args.extend(["--name".to_owned(), player]);
     }
     args.extend(extra);
 
@@ -75,14 +80,6 @@ pub fn plan(options: &GameOptions, build: &Build, game_dir: PathBuf) -> Result<P
         env.push((key.to_owned(), value.clone()));
     }
     Ok(Plan { program: build.binary.clone(), args, cwd: game_dir, env })
-}
-
-/// The game reads a value that starts with `--` as the next option, so such values are refused.
-fn check_word(what: &str, value: &str) -> Result<()> {
-    if value.is_empty() || value.starts_with("--") {
-        return Err(Error::invalid(format!("{what} `{value}` is not valid")));
-    }
-    Ok(())
 }
 
 /// Splits like a shell without expansion; a backslash escapes only a quote, space or backslash (Windows paths stay).

@@ -47,6 +47,8 @@ anything the atlas cannot spell. Details and the reasons are in [ui-design.md](u
 crates/core   castanea-launcher-core: no UI, no window, everything testable
   paths       the launcher's folders per platform (config, data, cache), overridable for tests and portable use
   settings    launcher.json: language, offline mode, index URLs, release server and beta switch, the game's start options, the local build folder
+  playername  the player name: typed name > OS name > none, tidying, and the 3-16 character form the game accepts (player-name.md)
+  osname      the OS account's display name per platform (GetUserNameExW, getpwuid_r GECOS) and its pure parsers
   migrate     moves an old home (profiles, side-by-side versions) to the one game folder and the one build, once
   install     the installed build, GameSource and the release API client, local build folders, the update (check, download, swap)
   launch      the launch plan (program, args, working dir, env) as pure data, the running game, its log and crash check
@@ -159,7 +161,8 @@ folder links the build's assets in. The link points at `build/current`, so it st
 ## Launching
 
 - The plan is pure data built by `launch::plan` and tested: program = the build's binary, working dir = the game
-  folder, args = `--menu [--name N] <extra args>`, env = `CASTANEA_BACKEND` (vulkan or wgpu, left out when the game decides),
+  folder, args = `--menu [--name N] <extra args>` (N: the typed name or the OS account's, in the game's form,
+  [player-name.md](player-name.md)), env = `CASTANEA_BACKEND` (vulkan or wgpu, left out when the game decides),
   `CASTANEA_WINDOW`, and the extra variables.
 - **Which backend** is decided before the start by `backend::choose`, on a worker thread: Vulkan first, but only when a probe of
   the installed game (`--probe-gpu`, cached per game version and GPU) says it works, else wgpu, else an error; a game without

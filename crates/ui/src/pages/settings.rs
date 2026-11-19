@@ -110,9 +110,30 @@ fn text_row(
     }
 }
 
+/// The player name: empty shows the OS account's name as the default, and a line says what the game gets.
+fn player_row(app: &mut App, ui: &mut egui::Ui) {
+    let label = app.tr.get("settings.player").to_owned();
+    let hint = app.tr.get("settings.player_hint").to_owned();
+    let placeholder = app.os_name.as_deref().map(castanea_launcher_core::playername::tidy).unwrap_or_default();
+    let in_game = app.game_name().map_or_else(
+        || app.tr.get("settings.player_none").to_owned(),
+        |name| app.tr.fill("settings.player_in_game", &[("name", &name)]),
+    );
+    let changed = setting_row(ui, label, Some(&hint), |ui| {
+        let changed =
+            widgets::text_field(ui, &mut app.settings.game.player_name, &placeholder, layout::FIELD).changed();
+        ui.add_space(space::XS);
+        ui.label(widgets::small(&in_game));
+        changed
+    });
+    if changed {
+        app.save_settings();
+    }
+}
+
 fn game(app: &mut App, ui: &mut egui::Ui) {
     widgets::section(ui, app.tr.get("settings.game"));
-    text_row(app, ui, "settings.player", None, "", |a| &mut a.settings.game.player_name);
+    player_row(app, ui);
     text_row(app, ui, "settings.window", Some("settings.window_hint"), "1280x720", |a| &mut a.settings.game.window);
     text_row(app, ui, "settings.extra", Some("settings.extra_hint"), "", |a| &mut a.settings.game.extra_args);
     on_game_start(app, ui);

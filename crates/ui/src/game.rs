@@ -10,6 +10,7 @@ use castanea_launcher_core::backend::{self, Choice, Verdict};
 use castanea_launcher_core::install::update::{self, Check};
 use castanea_launcher_core::install::{Build, Platform, Release, ReleaseApi, local, notes};
 use castanea_launcher_core::launch::{self, Outcome, Running};
+use castanea_launcher_core::playername;
 use castanea_launcher_core::settings::OnGameStart;
 use eframe::egui;
 
@@ -77,6 +78,21 @@ impl App {
     /// The local build folder in use, if any: the one for this run, else the one in the settings.
     pub fn dev_folder(&self) -> Option<PathBuf> {
         self.dev_override.clone().or_else(|| self.settings.dev_build.clone())
+    }
+
+    /// The game's options with the player name in use: the typed one, else the OS account's.
+    pub fn game_options(&self) -> castanea_launcher_core::settings::GameOptions {
+        self.settings.game.with_default_name(self.os_name.as_deref())
+    }
+
+    /// The name the player has: typed in Settings, else the OS account's.
+    pub fn player_name(&self) -> Option<String> {
+        playername::resolve(&self.settings.game.player_name, self.os_name.as_deref()).map(|n| n.shown)
+    }
+
+    /// The form of that name the game gets (`--name`), when there is one.
+    pub fn game_name(&self) -> Option<String> {
+        self.player_name().and_then(|name| playername::for_game(&name))
     }
 
     /// Reads which build the game starts: the local build folder or the installed release.
@@ -226,7 +242,7 @@ impl App {
         }
         let Some(build) = self.installed.clone() else { return };
         self.starting = true;
-        let (paths, options) = (self.paths.clone(), self.settings.game.clone());
+        let (paths, options) = (self.paths.clone(), self.game_options());
         self.jobs.spawn(ctx, move || {
             let gpu = backend::gpu::system_key();
             Done::Backend(
@@ -242,7 +258,7 @@ impl App {
         }
         let Some(build) = self.installed.clone() else { return };
         let gpu = backend::gpu::system_key();
-        let result = backend::choose(&self.paths, &build, &self.settings.game, &gpu, backend::PROBE_TIMEOUT);
+        let result = backend::choose(&self.paths, &build, &self.game_options(), &gpu, backend::PROBE_TIMEOUT);
         self.on_backend(result.map_err(|e| e.to_string()));
     }
 
@@ -257,7 +273,7 @@ impl App {
             }
         };
         let Some(build) = self.installed.clone() else { return };
-        let mut options = self.settings.game.clone();
+        let mut options = self.game_options();
         options.graphics = choice.graphics;
         match launch::launch(&self.paths, &build, &options, self.settings.log_lines) {
             Ok((plan, running)) => {
