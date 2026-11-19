@@ -3,6 +3,7 @@
 //! and every string key exists and is used.
 
 mod brand;
+mod gallery;
 mod launcher;
 mod layout;
 mod name;
@@ -39,6 +40,17 @@ pub struct Harness {
     _dir: tempfile::TempDir,
 }
 
+/// `count` small screenshots with the game's file names, one every ten minutes up to now.
+pub fn write_screenshots(dir: &Path, count: u32) {
+    fs::create_dir_all(dir).unwrap();
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as i64;
+    for n in 0..count {
+        let image =
+            image::RgbaImage::from_fn(64, 36, |x, y| image::Rgba([(x * 4) as u8, (y * 7) as u8, (n * 40) as u8, 255]));
+        image.save(dir.join(format!("castanea-{}.png", now - i64::from(n) * 600_000))).unwrap();
+    }
+}
+
 /// An installed release in `paths`, as an update would leave it.
 pub fn install_build(paths: &Paths, script: &str) {
     let root = update::current_dir(paths);
@@ -71,6 +83,7 @@ impl Harness {
         fs::create_dir_all(mods.join(".disabled/redmoon")).unwrap();
         fs::write(mods.join(".disabled/redmoon/mod.json"), r#"{"id":"redmoon","name":"Red moon","version":"0.1.0"}"#)
             .unwrap();
+        write_screenshots(&paths.screenshots(), 3);
         let index = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/examples/index.json");
         let mut app = App::new(paths, None);
         app.settings.indexes.push(index.display().to_string());
@@ -125,6 +138,11 @@ impl Harness {
 
     pub fn go(&mut self, page: Page) {
         self.app.go(page);
+    }
+
+    /// The thumbnails the page asked for (and the large view) are decoded: nothing is on its way, so an idle frame is idle.
+    pub fn gallery_loaded(&mut self) -> bool {
+        self.app.gallery_settled()
     }
 
     #[cfg(unix)]
@@ -215,6 +233,14 @@ impl Harness {
                 app.go(Page::Settings);
             }),
             ("about", |app| app.go(Page::About)),
+            ("screenshots", |app| {
+                app.close_viewer();
+                app.go(Page::Screenshots);
+            }),
+            ("screenshot-view", |app| {
+                app.go(Page::Screenshots);
+                app.gallery.viewer = app.gallery.shots.first().map(|s| s.path.clone());
+            }),
         ]
     }
 }
@@ -275,7 +301,7 @@ fn an_idle_window_asks_for_no_repaint() {
         // The sizes of the storage rows are measured on first sight; wait for those jobs.
         for _ in 0..400 {
             h.frame();
-            if h.app.jobs.running == 0 {
+            if h.app.jobs.running == 0 && h.gallery_loaded() {
                 break;
             }
             std::thread::sleep(std::time::Duration::from_millis(5));
@@ -295,7 +321,7 @@ fn keyboard_opens_pages_and_moves_focus() {
     h.go(Page::Home);
     h.draw();
     let key = |key, modifiers| egui::Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers };
-    let keys = [egui::Key::Num1, egui::Key::Num2, egui::Key::Num3, egui::Key::Num4, egui::Key::Num5];
+    let keys = [egui::Key::Num1, egui::Key::Num2, egui::Key::Num3, egui::Key::Num4, egui::Key::Num5, egui::Key::Num6];
     for (n, key_code) in keys.into_iter().enumerate() {
         h.frame_with(vec![key(key_code, egui::Modifiers::COMMAND)]);
         assert_eq!(h.app.page, Page::ALL[n]);
@@ -439,6 +465,7 @@ fn keys_in_code() -> Vec<(String, String)> {
         "news.",
         "hint.",
         "storage.",
+        "shots.",
     ];
     let mut out = Vec::new();
     let mut stack = vec![Path::new(env!("CARGO_MANIFEST_DIR")).join("src")];

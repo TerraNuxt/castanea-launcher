@@ -5,6 +5,7 @@ pub mod archive;
 pub mod backend;
 pub mod download;
 pub mod error;
+pub mod gallery;
 pub mod index;
 pub mod install;
 pub mod json_file;

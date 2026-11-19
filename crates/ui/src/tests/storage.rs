@@ -28,6 +28,8 @@ fn settle(h: &mut Harness) {
 fn filled(language: &str) -> Harness {
     let mut h = Harness::new(language);
     let p = h.app.paths.clone();
+    // The harness's screenshots are game data too; these tests count the bytes of what they write themselves.
+    std::fs::remove_dir_all(p.screenshots()).unwrap();
     for (path, text) in [
         (p.cache.join("news/en.json"), "[]"),
         (p.cache.join("downloads/a.part"), "partial"),

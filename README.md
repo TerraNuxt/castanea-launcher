@@ -11,6 +11,7 @@ newest release (checked, downloaded and verified at start), starts it, and is a 
 | ![Downloading an update](docs/screenshots/home-update.png) | ![The game running](docs/screenshots/home-running.png) |
 | ![Offline](docs/screenshots/home-offline.png) | ![Spielen, German](docs/screenshots/home-de.png) |
 | ![Mods, installed](docs/screenshots/mods-installed.png) | ![Mods, browse](docs/screenshots/mods-browse.png) |
+| ![Screenshots](docs/screenshots/screenshots.png) | ![A screenshot, large](docs/screenshots/screenshot-view.png) |
 | ![Game output](docs/screenshots/output.png) | ![Settings](docs/screenshots/settings.png) |
 | ![Settings, Advanced](docs/screenshots/settings-advanced.png) | ![About](docs/screenshots/about.png) |
 
@@ -30,6 +31,7 @@ newest release (checked, downloaded and verified at start), starts it, and is a 
   `castanea launcher 0.2.0 · up to date` or `restart to update to 0.3.0`. A launcher that does not start is rolled
   back. If the launcher is installed by a package manager, as an AppImage or in a read-only folder it never replaces itself
   and only shows the new version and a link ([design](docs/design.md#launcher-self-update)).
+- **Screenshots**: the pictures the game takes, newest first and grouped by day, as a grid of thumbnails made in the background and cached (only the rows in view are drawn, so a huge folder is fine); a click opens a large view with next and previous (arrow keys), Esc, open, show in folder, copy to the clipboard, rename and delete to the trash ([docs/screenshots-gallery.md](docs/screenshots-gallery.md)).
 - **Mods → Installed**: the mods of the game folder from `mod.json`: switch on and off, remove, update, import a zip
   or folder, open the folder; missing or disabled dependencies, duplicate ids, cycles and game-version mismatches are
   shown.
@@ -50,7 +52,7 @@ newest release (checked, downloaded and verified at start), starts it, and is a 
 - **Graphics**: Auto checks the installed game once (`--probe-gpu`) and starts it with Vulkan only when that works here, else
   with wgpu; a Vulkan start that dies at once is remembered. About shows the backend of the last start
   ([contract](docs/game-launch.md)).
-- English and German (`crates/ui/lang/*.json`), a matte dark theme, keyboard shortcuts (Ctrl+1…5, F5, Ctrl+F, Tab,
+- English and German (`crates/ui/lang/*.json`), a matte dark theme, keyboard shortcuts (Ctrl+1…6, F5, Ctrl+F, Tab,
   Enter, Esc), screen reader names for every control (AccessKit), the system window frame, window size and position
   remembered, from 880x500 up; the first start picks its size from the monitor and its scale ([window sizing](docs/ui-design.md#window-size)).
 
@@ -80,14 +82,14 @@ release, for one run. `CASTANEA_RELEASE_URL=<url>` points the launcher at anothe
 
 | Path | What |
 |---|---|
-| `crates/core` | Everything without UI: folders, settings, the build and its updates, migration, launch, the graphics backend choice ([docs/game-launch.md](docs/game-launch.md)), mods, index, downloads |
+| `crates/core` | Everything without UI: folders, settings, the build and its updates, migration, launch, the graphics backend choice ([docs/game-launch.md](docs/game-launch.md)), the player name, the screenshot gallery, mods, index, downloads |
 | `crates/ui` | The window (eframe): `app.rs` state, `game.rs` updates and the running game, `shell.rs` layout, `sidebar.rs`, `pages/` one file per page, `widgets/` components, `theme.rs` tokens, `lang/` strings, `assets/fonts` |
 | `docs/` | Design, UI design, mod index format, packaging, Nix, Windows notes, screenshots, an example index |
 | `third_party/` | Licences and sources of the foreign fonts (Inter, Phosphor); the own brand font has its note beside it |
 | `tools/remote.sh` | Runs a command in this tree's task container on the build host (`tools/remote.sh cargo test --workspace`) |
 | `tools/release.sh` | Builds both releases (`all`: Linux x86_64 and Windows x86_64 zips) on the build host; `build_binary.sh`, `pack_release.sh`, `builder/Dockerfile` and `make_ico.py` are its parts ([packaging](docs/packaging.md)) |
 | `tools/winck.sh` | Windows cross-check (cargo check and clippy for a Windows target in a container) |
-| `tools/screenshots.sh` | Takes `docs/screenshots` under a private Xvfb display (`castanea-launcher --screenshots DIR`) |
+| `tools/screenshots.sh` | Takes `docs/screenshots` under a private Xvfb display (`castanea-launcher --screenshots DIR`; without Nix set `LAUNCHER_VK_ICD`) |
 
 ## License
 

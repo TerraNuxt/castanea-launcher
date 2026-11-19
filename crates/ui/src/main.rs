@@ -3,6 +3,7 @@
 
 mod app;
 mod bmfont;
+mod gallery;
 mod game;
 mod i18n;
 mod icons;

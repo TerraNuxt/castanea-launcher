@@ -6,6 +6,8 @@ use std::sync::{Arc, Mutex};
 
 use castanea_launcher_core::backend::Choice;
 use castanea_launcher_core::download::Speed;
+use castanea_launcher_core::gallery::Scan;
+use castanea_launcher_core::gallery::thumb::Pixels;
 use castanea_launcher_core::index::Index;
 use castanea_launcher_core::install::Build;
 use castanea_launcher_core::install::update::Check;
@@ -45,6 +47,10 @@ pub enum Done {
         lang: String,
         result: Result<Vec<castanea_launcher_core::news::Item>, String>,
     },
+    /// The screenshots folder scanned.
+    ShotsScanned(Scan),
+    /// A screenshot decoded at its real size, for the clipboard.
+    ShotPixels(Result<Pixels, String>),
     /// One storage row measured.
     StorageSize {
         row: Row,

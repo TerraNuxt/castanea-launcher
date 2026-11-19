@@ -59,7 +59,48 @@ fn up_to_date(app: &mut App) {
     jobs::set(&app.update_progress, None);
 }
 
-const STEPS: [Step; 26] = [
+/// Writes made-up screenshots (a flat low-poly scene in a different colour mood each) into the demo game folder: five today,
+/// four yesterday and the rest on earlier days, named as the game names them.
+fn demo_screenshots(app: &mut App) {
+    let dir = app.paths.screenshots();
+    let _ = std::fs::create_dir_all(&dir);
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64);
+    let day = 86_400_000;
+    let moods: [([u8; 3], [u8; 3]); 6] = [
+        ([232, 170, 120], [70, 90, 60]),
+        ([120, 160, 210], [60, 100, 70]),
+        ([210, 120, 110], [90, 70, 80]),
+        ([150, 190, 220], [80, 110, 90]),
+        ([40, 50, 90], [30, 50, 60]),
+        ([225, 205, 150], [100, 90, 60]),
+    ];
+    for n in 0..14i64 {
+        let at = match n {
+            0..=4 => now - n * 47 * 60_000,
+            5..=8 => now - day - (n - 5) * 53 * 60_000,
+            _ => now - (n - 6) * day - n * 31 * 60_000,
+        };
+        let (sky, hills) = moods[(n as usize) % moods.len()];
+        let image = image::RgbaImage::from_fn(960, 540, |x, y| {
+            let (fx, fy) = (x as f32 / 960.0, y as f32 / 540.0);
+            let ridge = 0.62 + 0.10 * (fx * (5.0 + n as f32 * 0.7) + n as f32).sin() + 0.05 * (fx * 17.0).sin();
+            let sun = ((fx - 0.25 - 0.05 * n as f32).powi(2) + (fy - 0.25).powi(2)).sqrt() < 0.06;
+            let colour = if fy > ridge {
+                let shade = 0.75 + 0.25 * (fy - ridge).min(0.4) / 0.4;
+                hills.map(|c| (f32::from(c) * shade) as u8)
+            } else if sun {
+                [250, 240, 200]
+            } else {
+                sky.map(|c| (f32::from(c) * (1.1 - 0.35 * fy)).min(255.0) as u8)
+            };
+            image::Rgba([colour[0], colour[1], colour[2], 255])
+        });
+        let _ = image.save(dir.join(format!("castanea-{at}.png")));
+    }
+    app.gallery.stale = true;
+}
+
+const STEPS: [Step; 30] = [
     Step {
         name: "home",
         wait: Wait::Idle,
@@ -175,6 +216,36 @@ const STEPS: [Step; 26] = [
             app.browse.selected = Some("amber".to_owned());
         },
     },
+    Step {
+        name: "screenshots-empty",
+        wait: Wait::Idle,
+        setup: |app| {
+            language(app, "en");
+            app.gallery.stale = true;
+            app.go(Page::Screenshots);
+        },
+    },
+    Step {
+        name: "screenshots",
+        wait: Wait::Idle,
+        setup: |app| {
+            demo_screenshots(app);
+            app.go(Page::Screenshots);
+        },
+    },
+    Step {
+        name: "screenshot-view",
+        wait: Wait::Idle,
+        setup: |app| app.gallery.viewer = app.gallery.shots.get(1).map(|s| s.path.clone()),
+    },
+    Step {
+        name: "screenshots-de",
+        wait: Wait::Idle,
+        setup: |app| {
+            language(app, "de");
+            app.close_viewer();
+        },
+    },
     Step { name: "settings", wait: Wait::Idle, setup: |app| app.go(Page::Settings) },
     Step {
         name: "settings-advanced",
@@ -279,7 +350,7 @@ impl Shots {
         let size = ctx.content_rect().size();
         let sized = (size.x - self.size[0]).abs() < 1.0 && (size.y - self.size[1]).abs() < 1.0;
         let ready = match step.wait {
-            Wait::Idle => app.jobs.running == 0 && !app.is_running(),
+            Wait::Idle => app.jobs.running == 0 && !app.is_running() && app.gallery_settled(),
             Wait::Running => app.is_running(),
         };
         if self.frames > 40 && sized && ready && !self.requested {
@@ -303,7 +374,7 @@ impl Shots {
             self.requested = false;
         }
         if self.frames > 2000 {
-            self.fail(format!("{}: never settled (size {size:?})", step.name));
+            self.fail(format!("{}: never settled (size {size:?}, sized {sized}, ready {ready})", step.name));
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
     }

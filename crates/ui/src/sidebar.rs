@@ -68,7 +68,11 @@ fn item(app: &mut App, ui: &mut egui::Ui, page: Page) {
     painter.rect_filled(rect, theme::radius(radius::M), fill);
     let tint = if active { color::TEXT } else { theme::mix(color::TEXT_MUTED, color::TEXT, hover) };
     let icon_at = egui::pos2(rect.left() + space::S + size::ICON / 2.0, rect.center().y);
-    painter.text(icon_at, egui::Align2::CENTER_CENTER, page.icon(), font::icon(size::ICON), tint);
+    if page.icon() == crate::icons::DRAWN {
+        crate::icons::picture(painter, icon_at, tint);
+    } else {
+        painter.text(icon_at, egui::Align2::CENTER_CENTER, page.icon(), font::icon(size::ICON), tint);
+    }
     let label = app.tr.get(page.key()).to_owned();
     let text_at = egui::pos2(rect.left() + space::S * 2.0 + size::ICON, rect.center().y);
     let text_font = if active { font::semibold(size::BODY) } else { font::regular(size::BODY) };

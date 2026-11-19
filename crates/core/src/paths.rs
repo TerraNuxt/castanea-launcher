@@ -88,6 +88,16 @@ impl Paths {
     pub fn downloads(&self) -> PathBuf {
         self.cache.join("downloads")
     }
+
+    /// The game's screenshots (it writes `screenshots/castanea-<ms>.png` in its working directory).
+    pub fn screenshots(&self) -> PathBuf {
+        self.game().join(crate::gallery::DIR)
+    }
+
+    /// The gallery's thumbnail cache.
+    pub fn thumbnails(&self) -> PathBuf {
+        self.cache.join("thumbnails")
+    }
 }
 
 fn var(name: &str) -> Option<OsString> {

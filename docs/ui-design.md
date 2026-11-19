@@ -15,9 +15,9 @@ The window uses the system's frame (title bar, snapping and resizing as the plat
 +----------------+---------------------------------------------------------------+
 | > Play         |                                                               |  sidebar 184 wide, BASE,
 |   Mods         |                     page content                              |  a hairline on its right
-|   Game output •|                     (32 margin at the sides, 24 at the top)   |  • = the game is running
+|   Screenshots  |                     (32 margin at the sides, 24 at the top)   |
+|   Game output •|                                                               |  • = the game is running
 |   Settings     |                                                               |
-|                |                                                               |
 |                |                                                               |
 | Lade 0.3.0 43 %|                                                               |  a quiet line, only for a
 |   About        |                                                               |  download or offline mode
@@ -25,7 +25,7 @@ The window uses the system's frame (title bar, snapping and resizing as the plat
 ```
 
 Sidebar items are a line icon and a label, 32 high. The selected one is RAISED with semibold text; the others are
-muted and fade to HOVER under the pointer. Each item is a tab for screen readers. Ctrl+1 … Ctrl+5 open the pages in
+muted and fade to HOVER under the pointer. Each item is a tab for screen readers. Ctrl+1 … Ctrl+6 open the pages in
 this order, F5 plays, Ctrl+F searches mods, Esc closes a question or leaves the mod details.
 
 ## Play (home)
@@ -102,6 +102,32 @@ colour, keeps the muted text colour at 4.5:1 or better and the main text colour 
 against the page unless it is mostly see-through, so no text is ever hard to read; the scene is at least as wide as its
 area and sits on its bottom edge; at a width where it does not fit, more is cut on the right (smeltery, sky) than on the
 left (the sun). The scene is original art, drawn for castanea; it does not copy any game's look.
+
+## Screenshots
+
+```
+ SCREENSHOTS                                         [Open folder] (↻)
+ Today  5 screenshots
+ +--------+ +--------+ +--------+ +--------+       thumbnails 16:9, 200 wide at least, as many columns as fit;
+ | 17:52  | | 17:05  | |        | |        |       the time in a small dark pill; a hairline, HOVER outline
+ +--------+ +--------+ +--------+ +--------+
+ Yesterday  4 screenshots
+ ...
+```
+
+Large view (a click on a thumbnail), [screenshots/screenshot-view.png](screenshots/screenshot-view.png):
+
+```
+ [Back]  castanea-1795104331078.png
+ 2026-11-19 17:05 · 54 KB · 2 of 14
+ [Open] [Show in folder] [Copy] [Rename] [Delete]        (Delete: destructive outline)
+ +-------------------------------------------------------+
+ | <           the picture, fitted, on BASE           >  |   strips at the edges step to the newer / older one
+ +-------------------------------------------------------+
+```
+
+The empty state is one muted line that names the key (F2). The sidebar icon is drawn (frame, sun, hills) because the Phosphor
+subset has no picture glyph. Rules, thumbnails and the file actions: [screenshots-gallery.md](screenshots-gallery.md).
 
 ## Mods
 

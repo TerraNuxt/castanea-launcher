@@ -2,6 +2,7 @@
 # Takes the docs/screenshots PNGs on a Linux host: a demo launcher home with a fake installed game, a private Xvfb
 # display, software Vulkan (lavapipe). No window reaches the real desktop. Run from the repo root inside tools/shell.nix:
 #   nix-shell tools/shell.nix --run "tools/screenshots.sh target/release/castanea-launcher docs/screenshots"
+# Without Nix, point LAUNCHER_VK_ICD at the lavapipe file (Debian, Ubuntu: /usr/share/vulkan/icd.d/lvp_icd.json).
 # Another window size: CASTANEA_SHOT_SIZE=1920x1080 SCREENSHOT_SCREEN=1920x1080x24 (the Xvfb screen must be as big).
 # The demo home shows made-up news; a size below the minimum window shows the narrow layout.
 set -euo pipefail
@@ -67,7 +68,7 @@ sleep 1
 mkdir -p "$OUT"
 env -u WAYLAND_DISPLAY DISPLAY=":$DISPLAY_NUMBER" \
     HOME="$DEMO" CASTANEA_LAUNCHER_HOME="$HOME_DIR" \
-    VK_ICD_FILENAMES=/run/opengl-driver/share/vulkan/icd.d/lvp_icd.x86_64.json WGPU_BACKEND=vulkan \
+    VK_ICD_FILENAMES="${LAUNCHER_VK_ICD:-/run/opengl-driver/share/vulkan/icd.d/lvp_icd.x86_64.json}" WGPU_BACKEND=vulkan \
     LANG=en_US.UTF-8 \
     "$BIN" --screenshots "$OUT"
 ls -l "$OUT"

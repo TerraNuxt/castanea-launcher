@@ -28,21 +28,23 @@ use crate::storage::StorageState;
 pub enum Page {
     Home,
     Mods,
+    Screenshots,
     Log,
     Settings,
     About,
 }
 
 impl Page {
-    /// Sidebar order, which is also the order of Ctrl+1 … Ctrl+5.
-    pub const ALL: [Self; 5] = [Self::Home, Self::Mods, Self::Log, Self::Settings, Self::About];
+    /// Sidebar order, which is also the order of Ctrl+1 … Ctrl+6.
+    pub const ALL: [Self; 6] = [Self::Home, Self::Mods, Self::Screenshots, Self::Log, Self::Settings, Self::About];
     /// The pages at the top of the sidebar; About sits at the bottom.
-    pub const TOP: usize = 4;
+    pub const TOP: usize = 5;
 
     pub fn key(self) -> &'static str {
         match self {
             Self::Home => "nav.play",
             Self::Mods => "nav.mods",
+            Self::Screenshots => "nav.screenshots",
             Self::Log => "nav.output",
             Self::Settings => "nav.settings",
             Self::About => "nav.about",
@@ -53,6 +55,7 @@ impl Page {
         match self {
             Self::Home => icons::PLAY,
             Self::Mods => icons::PUZZLE,
+            Self::Screenshots => icons::DRAWN,
             Self::Log => icons::TERMINAL,
             Self::Settings => icons::GEAR,
             Self::About => icons::INFO,
@@ -79,6 +82,13 @@ pub enum Confirm {
     /// Worlds and game settings: asks for the typed word.
     DeleteGameData,
     DeleteEverything,
+    /// A screenshot, to the trash.
+    DeleteShot(PathBuf),
+    /// A screenshot for good, when the trash did not take it (`reason`).
+    DeleteShotForever {
+        path: PathBuf,
+        reason: String,
+    },
     /// Windows: delete everything, then the launcher program.
     #[cfg(windows)]
     Uninstall,
@@ -172,6 +182,7 @@ pub struct App {
     pub focus_search: bool,
     pub news: NewsState,
     pub storage: StorageState,
+    pub gallery: crate::gallery::GalleryState,
 }
 
 impl App {
@@ -228,6 +239,7 @@ impl App {
             focus_search: false,
             news: NewsState::default(),
             storage: StorageState::default(),
+            gallery: crate::gallery::GalleryState::default(),
         };
         app.load_news_cache();
         for error in errors {
@@ -255,6 +267,9 @@ impl App {
     }
 
     pub fn go(&mut self, page: Page) {
+        if page == Page::Screenshots && self.page != page {
+            self.gallery.stale = true;
+        }
         self.page = page;
     }
 
@@ -361,6 +376,8 @@ impl App {
                     self.reload_mods();
                 }
                 Done::News { lang, result } => self.on_news(lang, result),
+                Done::ShotsScanned(scan) => self.on_shots_scanned(scan),
+                Done::ShotPixels(result) => self.on_shot_pixels(ctx, result),
                 Done::StorageSize { row, info } => self.on_storage_info(row, info),
                 Done::StorageDeleted { what, result } => self.on_storage_deleted(ctx, what, result),
                 Done::Image { url, result } => {

@@ -49,6 +49,7 @@ crates/core   castanea-launcher-core: no UI, no window, everything testable
   settings    launcher.json: language, offline mode, index URLs, release server and beta switch, the game's start options, the local build folder
   playername  the player name: typed name > OS name > none, tidying, and the 3-16 character form the game accepts (player-name.md)
   osname      the OS account's display name per platform (GetUserNameExW, getpwuid_r GECOS) and its pure parsers
+  gallery     the game's screenshots: scan and sort, day groups, thumbnails and their cache, rename, delete, trash (screenshots-gallery.md)
   migrate     moves an old home (profiles, side-by-side versions) to the one game folder and the one build, once
   install     the installed build, GameSource and the release API client, local build folders, the update (check, download, swap)
   launch      the launch plan (program, args, working dir, env) as pure data, the running game, its log and crash check
@@ -83,7 +84,7 @@ data/
   game/                    the game's working directory
     assets -> ../build/current/assets   a symlink (Linux) or junction (Windows), checked at each start
     mods/                  the mods; mods/.disabled/ holds disabled ones (the game skips names with a dot)
-    saves/ settings.json crash/ debug/  written by the game
+    saves/ screenshots/ settings.json crash/ debug/  written by the game
     running.json           the pid of the running game, for a launcher that starts later
     logs/latest.log        the last run's output; logs/<stamp>.log for older runs (the last 10 kept)
   backend.json             what the launcher learned about the graphics backend: probe results, Vulkan starts that died, the last start
@@ -95,6 +96,7 @@ cache/
   index/<sha256 of URL>.json and .meta   the last good copy of each index and its ETag
   downloads/<sha256>.part                a download in progress, kept to be resumed
   news/<lang>.json                       the last good news feed per language and its ETag (docs/release-api.md, "News")
+  thumbnails/<key>.jpg                   the gallery's thumbnails, pruned to the files that exist and to 96 MB
 ```
 
 The game reads `assets/` and `mods/` from its working directory (`docs/modding/modding.md` of the game), so the game
@@ -266,12 +268,12 @@ size and its own Delete button (`crates/core/src/storage.rs`, the page in `crate
 
 | Row | What it holds (paths below the three folders above) | Deleted by Delete everything |
 |---|---|---|
-| Cache | everything in `cache/` (index, images, news, downloads and `.part` files), `data/backend.json` (probe results and the crash memory of Vulkan starts), `data/launcher-update/` (the staged launcher, the update marker, the skip list) | yes |
+| Cache | everything in `cache/` (index, images, news, thumbnails, downloads and `.part` files), `data/backend.json` (probe results and the crash memory of Vulkan starts), `data/launcher-update/` (the staged launcher, the update marker, the skip list) | yes |
 | Game | `data/build/` (`current`; `next` or `previous` only during an update or left by one that stopped, removed at the next start) and the link `data/game/assets` | yes |
 | Mods | `data/game/mods/` (enabled and `.disabled`) | yes |
 | Logs | `data/game/logs/` (`latest.log` and the older stamped ones) | yes |
 | Launcher settings | everything in `config/` (`launcher.json`, a leftover `github-token`, old `profiles.json`) and `data/window/` (the window state) | yes |
-| Game data (worlds, game settings) | what the game wrote in `data/game/` itself: `saves/`, `settings.json`, `crash/`, `debug/`. Listed only when the game folder exists | **never** (typed `DELETE`) |
+| Game data (worlds, game settings) | what the game wrote in `data/game/` itself: `saves/`, `screenshots/`, `settings.json`, `crash/`, `debug/`. Listed only when the game folder exists | **never** (typed `DELETE`) |
 
 The launcher makes nothing else: no temp folders (an archive unpacks to a sibling `.unpacking` folder that a failure removes),
 no registry entries, no Start menu or desktop shortcuts. The Windows zip is two files (`castanea-launcher.exe`, `LICENSE`); updates

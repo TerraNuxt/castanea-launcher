@@ -18,6 +18,8 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui) {
     }
     app.collect_jobs(&ctx);
     app.auto_news(&ctx);
+    app.auto_gallery(&ctx);
+    app.collect_thumbs(&ctx);
     app.auto_check_launcher(&ctx);
     app.poll_session(&ctx);
     if app.is_running() || app.jobs.running > 0 {
@@ -40,6 +42,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui) {
         match app.page {
             Page::Home => pages::home::ui(app, ui),
             Page::Mods => pages::mods::ui(app, ui),
+            Page::Screenshots => pages::screenshots::ui(app, ui),
             Page::Log => pages::log::ui(app, ui),
             Page::Settings => pages::settings::ui(app, ui),
             Page::About => pages::about::ui(app, ui),
@@ -50,7 +53,7 @@ pub fn ui(app: &mut App, ui: &mut egui::Ui) {
 }
 
 fn shortcuts(app: &mut App, ctx: &egui::Context) {
-    let keys = [Key::Num1, Key::Num2, Key::Num3, Key::Num4, Key::Num5];
+    let keys = [Key::Num1, Key::Num2, Key::Num3, Key::Num4, Key::Num5, Key::Num6];
     for (key, page) in keys.into_iter().zip(Page::ALL) {
         if ctx.input_mut(|i| i.consume_shortcut(&KeyboardShortcut::new(Modifiers::COMMAND, key))) {
             app.go(page);
@@ -102,9 +105,23 @@ fn confirm_dialog(app: &mut App, ctx: &egui::Context) {
             app.tr.get("common.remove").to_owned(),
             true,
         ),
+        (None, Confirm::DeleteShot(path)) => (
+            app.tr.get("shots.delete_title").to_owned(),
+            app.tr.fill("shots.delete_body", &[("name", &crate::gallery::file_name(path))]),
+            app.tr.get("shots.to_trash").to_owned(),
+            true,
+        ),
+        (None, Confirm::DeleteShotForever { path, reason }) => (
+            app.tr.get("shots.forever_title").to_owned(),
+            app.tr.fill("shots.forever_body", &[("name", &crate::gallery::file_name(path)), ("reason", reason)]),
+            app.tr.get("shots.delete").to_owned(),
+            true,
+        ),
         _ => return,
     };
     let notice = storage.as_ref().is_some_and(|d| d.notice);
+    // Enter never confirms a deletion.
+    let asks_for_delete = matches!(confirm, Confirm::DeleteShot(_) | Confirm::DeleteShotForever { .. });
     let mut ready = true;
     let typed = &mut app.storage.typed;
     let mut answer = None;
@@ -133,7 +150,11 @@ fn confirm_dialog(app: &mut App, ctx: &egui::Context) {
                     answer = Some(false);
                 }
             });
-            if storage.is_none() && ui.input(|i| i.key_pressed(Key::Enter)) && ui.memory(|m| m.focused().is_none()) {
+            if storage.is_none()
+                && !asks_for_delete
+                && ui.input(|i| i.key_pressed(Key::Enter))
+                && ui.memory(|m| m.focused().is_none())
+            {
                 answer = Some(true);
             }
         });
@@ -159,6 +180,8 @@ fn apply(app: &mut App, ctx: &egui::Context, confirm: Confirm) {
         Confirm::DeleteEverything => return app.start_delete(ctx, Deletion::Everything),
         #[cfg(windows)]
         Confirm::Uninstall => return app.start_delete(ctx, Deletion::Uninstall),
+        Confirm::DeleteShot(path) => return app.delete_shot(path),
+        Confirm::DeleteShotForever { path, .. } => return app.delete_shot_forever(path),
         Confirm::Goodbye => std::process::exit(0),
         other => other,
     };
